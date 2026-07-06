@@ -10,7 +10,7 @@ import { useApp } from '@/lib/store';
 import { Icon } from '../../_orders/icons';
 import '../../_orders/orders.css';
 
-const SECTION_FILTERS = ['АР', 'КР', 'ЭОМ', 'ВК', 'ОВиК', 'ГС', 'ТХ', 'ПБ', 'СС'];
+const SECTION_FILTERS = ['АР', 'КР', 'ЭОМ', 'ВК', 'ОВиК', 'ГС', 'ТХ', 'ПБ', 'СС', 'ЭС', 'РАСЧ', 'ЧЕРТ', '3DSK'];
 
 const SHORTLIST_KEY = 'pm_shortlist';
 
@@ -63,10 +63,14 @@ function resolveSpecToSection(spec: string): string | null {
     ...STAGE_RD_GROUPS.flatMap((g) => g.sections),
   ];
   const target = trimmed.toLowerCase();
-  const match = allSections.find((sec) =>
-    sec.specialists.some((sp) => sp.toLowerCase().includes(target) || target.includes(sp.toLowerCase()))
-  );
-  if (match && SECTION_FILTERS.includes(match.code)) return match.code;
+  // Ищем только среди разделов, по которым каталог умеет фильтровать —
+  // иначе «Архитектор» первым матчится на 'ПЗ' (не фильтруемый) и теряется.
+  const match = allSections
+    .filter((sec) => SECTION_FILTERS.includes(sec.code))
+    .find((sec) =>
+      sec.specialists.some((sp) => sp.toLowerCase().includes(target) || target.includes(sp.toLowerCase()))
+    );
+  if (match) return match.code;
 
   return null;
 }
@@ -268,7 +272,7 @@ function FilterPills({ regionFilter, setRegionFilter, sectionFilter, setSectionF
   );
 }
 
-function PersonCard({ designer, onSelect, onProfile, onShortlist, inShortlist }: any) {
+function PersonCard({ designer, onSelect, onProfile, onShortlist, inShortlist, projectMode }: any) {
   return (
     <div
       className={'card card-hover personcard' + (designer.featured ? ' is-featured' : '')}
@@ -316,11 +320,11 @@ function PersonCard({ designer, onSelect, onProfile, onShortlist, inShortlist }:
         >
           {inShortlist ? (
             <>
-              В проекте <Icon name="check" size={14} />
+              {projectMode ? 'В проекте' : 'В избранном'} <Icon name="check" size={14} />
             </>
           ) : (
             <>
-              <Icon name="plus" size={14} /> В проект
+              <Icon name="plus" size={14} /> {projectMode ? 'В проект' : 'В избранное'}
             </>
           )}
         </button>
@@ -341,15 +345,19 @@ function PersonCard({ designer, onSelect, onProfile, onShortlist, inShortlist }:
 function DesignersPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { notify } = useApp();
+  const { notify, getOrderById, toggleInvitedDesigner } = useApp();
   const [search, setSearch] = useState('');
   const [regionFilter, setRegionFilter] = useState('');
   const [sectionFilter, setSectionFilter] = useState('');
   const [rateFilter, setRateFilter] = useState(0);
   const [hint, setHint] = useState<number | null>(null);
   const [sroOnly, setSroOnly] = useState(false);
-  const [selectedDesigner, setSelectedDesigner] = useState<Designer | null>(MOCK_DESIGNERS[1]);
+  const [selectedDesigner, setSelectedDesigner] = useState<Designer | null>(MOCK_DESIGNERS[0]);
   const [shortlist, setShortlist] = useState<string[]>([]);
+
+  // Режим приглашения в конкретную заявку (?orderId=…) vs внеконтекстное избранное.
+  const orderIdParam = searchParams.get('orderId');
+  const projectOrder = orderIdParam ? getOrderById(orderIdParam) : null;
 
   // Предзаполнение фильтра/поиска из ?spec=… (BUG-012).
   const specParam = searchParams.get('spec');
@@ -381,9 +389,23 @@ function DesignersPageContent() {
       if (typeof window !== 'undefined') {
         localStorage.setItem(SHORTLIST_KEY, JSON.stringify(next));
       }
-      notify(inList ? 'Убрано из проекта' : 'Добавлено в проект');
+      notify(inList ? 'Убрано из избранного' : 'Добавлено в избранное');
       return next;
     });
+  };
+
+  // Признак «в проекте/в избранном» и переключатель — с учётом режима ?orderId.
+  const inProject = (id: string) =>
+    projectOrder ? (projectOrder.invitedDesignerIds ?? []).includes(id) : shortlist.includes(id);
+
+  const handleProjectToggle = (designer: Designer) => {
+    if (projectOrder) {
+      const wasIn = (projectOrder.invitedDesignerIds ?? []).includes(designer.id);
+      toggleInvitedDesigner(projectOrder.id, designer.id);
+      notify(wasIn ? 'Убран из проекта' : `Приглашён в проект «${projectOrder.title}»`);
+    } else {
+      toggleShortlist(designer.id);
+    }
   };
 
   const filtered = MOCK_DESIGNERS.filter((d) => {
@@ -454,8 +476,9 @@ function DesignersPageContent() {
                   designer={designer === featured ? { ...designer, featured: true } : designer}
                   onSelect={() => setSelectedDesigner(designer)}
                   onProfile={() => router.push(`/designers/${designer.id}`)}
-                  onShortlist={() => toggleShortlist(designer.id)}
-                  inShortlist={shortlist.includes(designer.id)}
+                  onShortlist={() => handleProjectToggle(designer)}
+                  inShortlist={inProject(designer.id)}
+                  projectMode={!!projectOrder}
                 />
               ))}
             </div>
@@ -556,7 +579,7 @@ function DesignersPageContent() {
 
           <div className="card">
             <h3 className="section-title" style={{ fontSize: 16, marginBottom: 14 }}>
-              Последние проекты
+              Примеры проектов на платформе
             </h3>
             <div className="grid-2" style={{ gap: 12 }}>
               {MOCK_PROJECTS.map((p) => (
@@ -572,15 +595,15 @@ function DesignersPageContent() {
             {selectedDesigner && (
               <button
                 className="btn btn-outline btn-sm btn-block mt16"
-                onClick={() => toggleShortlist(selectedDesigner.id)}
+                onClick={() => handleProjectToggle(selectedDesigner)}
               >
-                {shortlist.includes(selectedDesigner.id) ? (
+                {inProject(selectedDesigner.id) ? (
                   <>
-                    В проекте <Icon name="check" size={14} />
+                    {projectOrder ? 'В проекте' : 'В избранном'} <Icon name="check" size={14} />
                   </>
                 ) : (
                   <>
-                    Добавить в проект <Icon name="arrowRight" size={14} />
+                    {projectOrder ? 'Пригласить в проект' : 'Добавить в избранное'} <Icon name="arrowRight" size={14} />
                   </>
                 )}
               </button>

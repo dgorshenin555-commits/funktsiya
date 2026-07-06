@@ -12,6 +12,7 @@ import { useApp } from '@/lib/store';
 import { Icon } from '../../../_orders/icons';
 import { Avatar, StatusBadge, typeImage, typeLabel, formatDeadline, formatMoney } from '../../../_orders/shared';
 import { STAGE_LABELS, SCALE_LABELS } from '@/lib/constants';
+import { MOCK_DESIGNERS } from '@/lib/mock-data';
 import '../../../_orders/orders.css';
 
 const TABS = ['Описание', 'Проектировщики', 'Коммуникации', 'Замечания', 'Файлы'];
@@ -45,7 +46,7 @@ const isValidBudget = (v) => { const n = parseInt(String(v).replace(/\D/g, ''), 
 function OrderDetailContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { getOrderById, getResponsesForOrder, user, addResponse, hasResponded, selectExecutor, notify } = useApp();
+  const { getOrderById, getResponsesForOrder, user, addResponse, hasResponded, selectExecutor, toggleInvitedDesigner, notify } = useApp();
   const [tab, setTab] = useState('Описание');
   const [responseText, setResponseText] = useState('');
   const [propBudget, setPropBudget] = useState('');
@@ -90,6 +91,10 @@ function OrderDetailContent() {
 
   const hero = typeImage(o.objectType);
   const team = (o.specialists && o.specialists.length) ? o.specialists : ['Архитектор', 'ГАП', 'Конструктор', 'Инженер-электрик', 'Инженер-сантехник'];
+  // «Команда проекта» — приглашённые проектировщики (I15).
+  const invitedTeam = (o.invitedDesignerIds ?? [])
+    .map((id) => MOCK_DESIGNERS.find((d) => d.id === id))
+    .filter(Boolean);
 
   const Main = () => {
     if (tab === 'Проектировщики') return (
@@ -314,6 +319,37 @@ function OrderDetailContent() {
               </div>
             </div>
           )}
+
+          <div className="card">
+            <h3 className="section-title" style={{ fontSize: 16, marginBottom: 14 }}>Команда проекта</h3>
+            {invitedTeam.length ? (
+              <div className="col gap10">
+                {invitedTeam.map((d) => (
+                  <div key={d.id} className="row gap12" style={{ alignItems: 'center' }}>
+                    <Avatar text={initials(d.name)} size={40} />
+                    <div className="grow" style={{ minWidth: 0 }}>
+                      <div style={{ fontWeight: 700, fontSize: 14 }}>
+                        <a className="link" onClick={() => router.push(`/designers/${d.id}`)}>{d.name}</a>
+                      </div>
+                      <div className="dim" style={{ fontSize: 12.5 }}>{d.sections.join(' · ')}</div>
+                    </div>
+                    {isOwner && (
+                      <button className="iconbtn" title="Убрать из проекта" onClick={() => { toggleInvitedDesigner(o.id, d.id); notify('Убран из проекта'); }}>
+                        <Icon name="x" size={16} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="muted" style={{ margin: 0, fontSize: 13.5 }}>Команда пока не набрана.</p>
+            )}
+            {isOwner && (
+              <button className="btn btn-outline btn-sm btn-block mt16" onClick={() => router.push('/designers?orderId=' + o.id)}>
+                <Icon name="plus" size={14} /> Пригласить
+              </button>
+            )}
+          </div>
 
           <div className="card">
             <h3 className="section-title" style={{ fontSize: 16, marginBottom: 6 }}>Требуются специалисты</h3>

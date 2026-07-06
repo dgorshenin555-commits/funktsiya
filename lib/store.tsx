@@ -21,6 +21,7 @@ interface AppContextType extends AppState {
   addResponse: (response: Omit<OrderResponse, 'id' | 'createdAt' | 'designerId' | 'designerName' | 'designerCompany'>) => boolean;
   hasResponded: (orderId: string) => boolean;
   selectExecutor: (orderId: string, designerId: string, designerName: string) => void;
+  toggleInvitedDesigner: (orderId: string, designerId: string) => void;
   getOrderById: (id: string) => Order | undefined;
   getResponsesForOrder: (orderId: string) => OrderResponse[];
   getMyOrders: () => Order[];
@@ -195,6 +196,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }));
   }, []);
 
+  // Приглашение проектировщика в «Команду проекта» заявки (I15).
+  const toggleInvitedDesigner = useCallback((orderId: string, designerId: string) => {
+    setState((prev) => ({
+      ...prev,
+      orders: prev.orders.map((o) => {
+        if (o.id !== orderId) return o;
+        const invited = o.invitedDesignerIds ?? [];
+        return {
+          ...o,
+          invitedDesignerIds: invited.includes(designerId)
+            ? invited.filter((x) => x !== designerId)
+            : [...invited, designerId],
+        };
+      }),
+    }));
+  }, []);
+
   const getOrderById = useCallback((id: string) => {
     return state.orders.find((o) => o.id === id);
   }, [state.orders]);
@@ -259,7 +277,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         ...state,
         hydrated: mounted,
         login, register, logout, updateUser,
-        addOrder, addResponse, hasResponded, selectExecutor,
+        addOrder, addResponse, hasResponded, selectExecutor, toggleInvitedDesigner,
         getOrderById, getResponsesForOrder,
         getMyOrders, getMyResponses,
         toggleFavoriteStandard, getFavoriteStandards, getMyExpertiseResponses, getMyExpertiseProjects, getRecommendedOrders, getRecommendedExpertise,

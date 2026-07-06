@@ -62,6 +62,7 @@ export interface Order {
   responsesCount: number;
   assignedDesignerId?: string;
   assignedDesignerName?: string;
+  invitedDesignerIds?: string[];
   createdAt: string;
 }
 

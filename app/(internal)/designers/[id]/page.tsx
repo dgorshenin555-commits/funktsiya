@@ -1,8 +1,8 @@
 // @ts-nocheck
 'use client';
 
-import { useParams, useRouter } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { MOCK_DESIGNERS, MOCK_PROJECTS } from '@/lib/mock-data';
 import { useApp } from '@/lib/store';
@@ -58,16 +58,31 @@ const DOCS = [
   { ic: 'shield', name: 'Страхование ответственности', sub: 'Полис № 24/0915 · до 31.12.2025', tag: ['wait', 'Истекает'] },
 ];
 
-export default function DesignerProfilePage() {
+function DesignerProfileContent() {
   const params = useParams();
   const router = useRouter();
-  const { notify } = useApp();
+  const searchParams = useSearchParams();
+  const { notify, getOrderById, toggleInvitedDesigner } = useApp();
   const id = params?.id as string;
   const [activeTab, setActiveTab] = useState('Обзор');
   const [inShortlist, setInShortlist] = useState(false);
 
   // Ищем дизайнера по ID, или берем первого как фолбек (на случай перезагрузки страницы)
   const designer = MOCK_DESIGNERS.find(d => d.id === id) || MOCK_DESIGNERS[0];
+
+  // Режим приглашения в конкретную заявку (?orderId=…) vs внеконтекстное избранное.
+  const orderIdParam = searchParams.get('orderId');
+  const projectOrder = orderIdParam ? getOrderById(orderIdParam) : null;
+  const inProject = projectOrder
+    ? (projectOrder.invitedDesignerIds ?? []).includes(designer.id)
+    : inShortlist;
+
+  const handleInvite = () => {
+    if (!projectOrder) { toggleShortlist(); return; }
+    const wasIn = (projectOrder.invitedDesignerIds ?? []).includes(designer.id);
+    toggleInvitedDesigner(projectOrder.id, designer.id);
+    notify(wasIn ? 'Убран из проекта' : `Приглашён в проект «${projectOrder.title}»`);
+  };
 
   // Инициализация состояния шортлиста из localStorage (BUG-016) —
   // в useEffect, чтобы не было SSR-mismatch.
@@ -90,7 +105,7 @@ export default function DesignerProfilePage() {
     const next = isIn ? saved.filter((x) => x !== designer.id) : [...saved, designer.id];
     localStorage.setItem(SHORTLIST_KEY, JSON.stringify(next));
     setInShortlist(!isIn);
-    notify(isIn ? 'Убрано из проекта' : 'Добавлено в проект');
+    notify(isIn ? 'Убрано из избранного' : 'Добавлено в избранное');
   };
 
   if (!designer) {
@@ -166,12 +181,14 @@ export default function DesignerProfilePage() {
               <Icon name="comment" size={15} /> Написать
             </button>
             <button
-              className={inShortlist ? 'btn btn-ghost' : 'btn btn-primary'}
-              onClick={toggleShortlist}
+              className={inProject ? 'btn btn-ghost' : 'btn btn-primary'}
+              onClick={handleInvite}
             >
-              {inShortlist
-                ? <><Icon name="check" size={15} /> В проекте</>
-                : <><Icon name="rocket" size={15} /> Пригласить в проект</>}
+              {inProject
+                ? <><Icon name="check" size={15} /> {projectOrder ? 'В проекте' : 'В избранном'}</>
+                : projectOrder
+                  ? <><Icon name="rocket" size={15} /> Пригласить в проект</>
+                  : <><Icon name="star" size={15} /> В избранное</>}
             </button>
           </div>
         </div>
@@ -405,5 +422,13 @@ export default function DesignerProfilePage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function DesignerProfilePage() {
+  return (
+    <Suspense fallback={<div style={{ padding: 40, textAlign: 'center' }}>Загрузка…</div>}>
+      <DesignerProfileContent />
+    </Suspense>
   );
 }
