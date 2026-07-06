@@ -156,7 +156,7 @@ function OrderCard({ o, go }) {
 
 export default function OrdersPage() {
   const router = useRouter();
-  const { orders } = useApp();
+  const { orders, user, getMyOrders } = useApp();
   const go = (target, id) => {
     if (target === 'order-new') router.push('/orders/new');
     else if (target === 'order-detail') router.push(`/orders/detail?id=${id}`);
@@ -169,8 +169,12 @@ export default function OrdersPage() {
   const [hint, setHint] = useState(null);
   const [q, setQ] = useState('');
 
+  // Ролевой базовый набор (I14): проектировщик видит опубликованные заявки,
+  // заказчик/прочие — только свои (пункт меню у заказчика скрыт, это защита от прямого URL).
+  const baseOrders = user?.role === 'designer' ? orders.filter((o) => o.status === 'published') : getMyOrders();
+
   const query = q.trim().toLowerCase();
-  const list = orders.filter((o) =>
+  const list = baseOrders.filter((o) =>
     (type === 'Все типы' || typeLabel(o.objectType) === type) &&
     (status === 'Все статусы' || (STATUS_BADGE[o.status] && STATUS_BADGE[o.status].label === status)) &&
     (urg == null || urgencyBucket(o.deadline) === urg) &&
@@ -209,7 +213,7 @@ export default function OrdersPage() {
       </div>
 
       <div className="row between" style={{ marginBottom: 18 }}>
-        <span className="dim" style={{ fontSize: 13 }}>Найдено: {list.length} из {orders.length}</span>
+        <span className="dim" style={{ fontSize: 13 }}>Найдено: {list.length} из {baseOrders.length}</span>
         {dirty && <button className="btn btn-ghost btn-sm" onClick={reset}><Icon name="x" size={13} /> Сбросить</button>}
       </div>
 

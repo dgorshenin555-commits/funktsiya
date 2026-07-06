@@ -4,22 +4,23 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useApp } from '@/lib/store';
+import type { UserRole } from '@/lib/types';
 
 import { Menu, X } from 'lucide-react';
 import { Icon } from '../_orders/icons';
 
-type NavItem = { key: string; label: string; href: string; icon: string; c: string };
+type NavItem = { key: string; label: string; href: string; icon: string; c: string; roles?: UserRole[] };
 
 // Сгруппированное dock-меню (Cloud Design «Функция (7)»). Цвет чипа задаётся через --c.
 const GROUPS: { title: string; items: NavItem[] }[] = [
   { title: 'Работа', items: [
-    { key: 'orders', label: 'Заявки', href: '/orders', icon: 'grid', c: 'var(--accent-2)' },
-    { key: 'expertise', label: 'Обследование', href: '/expertise', icon: 'scan', c: 'var(--blue)' },
+    { key: 'orders', label: 'Заявки', href: '/orders', icon: 'grid', c: 'var(--accent-2)', roles: ['designer'] },
+    { key: 'expertise', label: 'Обследование', href: '/expertise', icon: 'scan', c: 'var(--blue)', roles: ['customer', 'expert'] },
   ] },
   { title: 'Подбор', items: [
-    { key: 'designers', label: 'Проектировщики', href: '/designers', icon: 'pen', c: 'var(--green)' },
-    { key: 'experts', label: 'Инженер-обследователь', href: '/experts', icon: 'shield', c: 'var(--amber)' },
-    { key: 'manufacturers', label: 'Производители', href: '/manufacturers', icon: 'stamp', c: 'var(--pink)' },
+    { key: 'designers', label: 'Проектировщики', href: '/designers', icon: 'pen', c: 'var(--green)', roles: ['customer'] },
+    { key: 'experts', label: 'Инженер-обследователь', href: '/experts', icon: 'shield', c: 'var(--amber)', roles: ['customer'] },
+    { key: 'manufacturers', label: 'Производители', href: '/manufacturers', icon: 'stamp', c: 'var(--pink)', roles: ['customer', 'designer', 'manufacturer'] },
   ] },
   { title: 'База знаний', items: [
     { key: 'standards', label: 'Нормативы', href: '/standards', icon: 'database', c: 'var(--accent)' },
@@ -31,8 +32,6 @@ const GROUPS: { title: string; items: NavItem[] }[] = [
     { key: 'settings', label: 'Настройки', href: '/settings', icon: 'sliders', c: 'var(--text-dim)' },
   ] },
 ];
-
-const TOOLBAR_ITEMS = GROUPS.flatMap((g) => g.items).slice(0, 6);
 
 export default function InternalLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -63,6 +62,12 @@ export default function InternalLayout({ children }: { children: React.ReactNode
       </div>
     );
   }
+
+  // Ролевое меню: показываем только пункты, доступные текущей роли (roles отсутствует = видно всем).
+  const visibleGroups = GROUPS
+    .map((g) => ({ ...g, items: g.items.filter((n) => !n.roles || n.roles.includes(user.role)) }))
+    .filter((g) => g.items.length);
+  const TOOLBAR_ITEMS = visibleGroups.flatMap((g) => g.items).slice(0, 6);
 
   const toggleSidebar = () => {
     if (window.innerWidth <= 768) {
@@ -107,7 +112,7 @@ export default function InternalLayout({ children }: { children: React.ReactNode
         </div>
 
         <nav className="tm-nav">
-          {GROUPS.map((g) => (
+          {visibleGroups.map((g) => (
             <div className="tm-group" key={g.title}>
               <div className="tm-head sidebar-text">{g.title}</div>
               {g.items.map((n) => {
