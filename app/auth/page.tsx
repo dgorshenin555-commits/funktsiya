@@ -12,7 +12,7 @@ import '../_orders/orders.css';
 const ROLES: { value: UserRole; label: string; icon: string }[] = [
   { value: 'customer', label: 'Заказчик', icon: 'building' },
   { value: 'designer', label: 'Проектировщик', icon: 'pen' },
-  { value: 'expert', label: 'Эксперт', icon: 'shield' },
+  { value: 'expert', label: 'Обследователь', icon: 'shield' },
   { value: 'manufacturer', label: 'Производитель', icon: 'factory' },
 ];
 

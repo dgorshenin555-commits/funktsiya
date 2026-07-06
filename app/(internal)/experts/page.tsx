@@ -33,7 +33,7 @@ const EXPERTISE_SERVICES = ['Негосударственная эксперти
 const MOCK_EXPERTS: Expert[] = [
   {
     id: 'exp1',
-    name: 'ООО «Эксперт-Регион»',
+    name: 'ООО «Обследователь-Регион»',
     type: 'company',
     services: ['Негосударственная экспертиза ПД', 'Аудит смет'],
     city: 'Москва',
@@ -85,9 +85,9 @@ const MOCK_EXPERTS: Expert[] = [
     type: 'person',
     services: ['Инженерные сети', 'BIM/ТИМ контроль'],
     city: 'Новосибирск',
-    accreditation: 'Инженер-эксперт ПБ',
+    accreditation: 'Инженер-обследователь ПБ',
     rating: 5.0,
-    reviewsLabel: 'Топ-эксперт',
+    reviewsLabel: 'Топ-обследователь',
     reportsCount: 58,
     yearsExperience: 11,
     phone: '+7 923 111-22-33',
@@ -308,8 +308,8 @@ export default function ExpertsPage() {
       <div className="cat-head">
         <div>
           <p className="cat-eyebrow">Экспертиза</p>
-          <h1 className="cat-title">Эксперты<br />и BIM-контроль</h1>
-          <p className="cat-lead">Аккредитованные эксперты и организации для проверки разделов, аудита смет и BIM/ТИМ-контроля. Выберите исполнителя под тип экспертизы.</p>
+          <h1 className="cat-title">Обследователи<br />и BIM-контроль</h1>
+          <p className="cat-lead">Аккредитованные обследователи и организации для проверки разделов, аудита смет и BIM/ТИМ-контроля. Выберите исполнителя под тип экспертизы.</p>
         </div>
         <div className="cat-head__filters">
           <div className="viewtoggle">
@@ -406,7 +406,7 @@ export default function ExpertsPage() {
                 </div>
               ))}
             </div>
-            <button className="btn btn-outline btn-sm btn-block mt16" onClick={() => notify('Заключения эксперта — в разработке')}>Все заключения эксперта →</button>
+            <button className="btn btn-outline btn-sm btn-block mt16" onClick={() => notify('Заключения обследователя — в разработке')}>Все заключения обследователя →</button>
           </div>
         </div>
       </div>

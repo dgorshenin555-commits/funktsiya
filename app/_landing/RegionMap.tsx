@@ -9,7 +9,7 @@ import { Icon } from './icons';
 
 const DARK_STYLE = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
 
-// o = заявки · d = проектировщики · e = эксперты · ll = [lng, lat]
+// o = заявки · d = проектировщики · e = обследователи · ll = [lng, lat]
 const CITIES = [
   { id: 'msk', name: 'Москва',          ll: [37.6176, 55.7558], o: 9, d: 38, e: 7 },
   { id: 'spb', name: 'Санкт-Петербург', ll: [30.3351, 59.9343], o: 6, d: 22, e: 4 },
@@ -33,7 +33,7 @@ const CITIES = [
 const LAYERS = [
   { id: 'o', label: 'Заявки',         forms: ['заявка', 'заявки', 'заявок'],                       hex: '#ab87ff', week: 5 },
   { id: 'd', label: 'Проектировщики', forms: ['проектировщик', 'проектировщика', 'проектировщиков'], hex: '#34d399', week: 11 },
-  { id: 'e', label: 'Эксперты',       forms: ['эксперт', 'эксперта', 'экспертов'],                 hex: '#5b9dff', week: 3 },
+  { id: 'e', label: 'Обследователи',  forms: ['обследователь', 'обследователя', 'обследователей'], hex: '#5b9dff', week: 3 },
 ];
 
 function plural(n, f) {
