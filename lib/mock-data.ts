@@ -16,7 +16,7 @@ export const MOCK_ORDERS: Order[] = [
     budget: '12 000 000 ₽',
     deadline: '2026-09-01',
     status: 'published',
-    responsesCount: 5,
+    responsesCount: 2,
     createdAt: '2026-03-15T10:00:00Z',
   },
   {
@@ -34,7 +34,7 @@ export const MOCK_ORDERS: Order[] = [
     budget: '800 000 ₽',
     deadline: '2026-06-15',
     status: 'published',
-    responsesCount: 12,
+    responsesCount: 1,
     createdAt: '2026-03-14T15:30:00Z',
   },
   {
@@ -52,7 +52,7 @@ export const MOCK_ORDERS: Order[] = [
     budget: '28 000 000 ₽',
     deadline: '2026-12-01',
     status: 'published',
-    responsesCount: 3,
+    responsesCount: 0,
     createdAt: '2026-03-13T09:00:00Z',
   },
   {
@@ -70,7 +70,7 @@ export const MOCK_ORDERS: Order[] = [
     budget: '5 500 000 ₽',
     deadline: '2026-08-01',
     status: 'in_progress',
-    responsesCount: 7,
+    responsesCount: 0,
     createdAt: '2026-03-10T12:00:00Z',
   },
   {
@@ -88,7 +88,7 @@ export const MOCK_ORDERS: Order[] = [
     budget: 'Ждём предложений',
     deadline: '2026-11-30',
     status: 'published',
-    responsesCount: 8,
+    responsesCount: 1,
     createdAt: '2026-03-12T08:00:00Z',
   },
   {
@@ -106,7 +106,7 @@ export const MOCK_ORDERS: Order[] = [
     budget: '3 200 000 ₽',
     deadline: '2026-07-15',
     status: 'completed',
-    responsesCount: 9,
+    responsesCount: 0,
     createdAt: '2026-02-20T10:00:00Z',
   },
 ];
@@ -363,7 +363,7 @@ export const MOCK_STANDARDS: StandardDocument[] = [
   { id: 'std5', code: 'СП 60.13330', title: 'Отопление, вентиляция и кондиционирование', type: 'СП', section: 'Отопление', year: 2023, status: 'Актуален' },
   { id: 'std6', code: 'СНиП 2.04', title: 'Водоснабжение наружное', type: 'СНиП', section: 'Водоснабжение', year: 2001, status: 'Устарел' },
   { id: 'std7', code: 'ISO 9001-2015', title: 'Системы менеджмента качества', type: 'ISO', section: 'Системы менеджмента', year: 2015, status: 'Актуален' },
-  { id: 'std8', code: 'ГОСТ-66-3020', title: 'Нефть и газ', type: 'ГОСТ', section: 'Нефть и газ', year: 2030, status: 'Актуален' },
+  { id: 'std8', code: 'ГОСТ-66-3020', title: 'Нефть и газ', type: 'ГОСТ', section: 'Нефть и газ', year: 2024, status: 'Актуален' },
   { id: 'std9', code: 'ГОСТ-62.3341', title: 'Теплоизоляция', type: 'ГОСТ', section: 'Тепловая изоляция', year: 2020, status: 'Актуален' },
 ];
 

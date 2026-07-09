@@ -190,6 +190,10 @@ export default function AuthPage() {
         setError('Неверный email или пароль.');
       }
     } else {
+      if (!name.trim()) {
+        setError('Введите ФИО или название компании.');
+        return;
+      }
       const ok = register({ email, name, role, company, phone: '', password });
       if (ok) {
         router.push('/dashboard');
