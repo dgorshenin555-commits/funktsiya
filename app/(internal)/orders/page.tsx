@@ -206,8 +206,8 @@ export default function OrdersPage() {
           <UrgencyScale value={urg} onPick={setUrg} />
         </div>
         <div className="viewtoggle">
-          {['list', 'columns', 'menu'].map((v) => (
-            <button key={v} className={view === v ? 'is-active' : ''} onClick={() => setView(v)}><Icon name={v === 'columns' ? 'columns' : v === 'menu' ? 'menu' : 'list'} /></button>
+          {['list', 'columns'].map((v) => (
+            <button key={v} className={view === v ? 'is-active' : ''} onClick={() => setView(v)}><Icon name={v === 'columns' ? 'columns' : 'list'} /></button>
           ))}
         </div>
       </div>

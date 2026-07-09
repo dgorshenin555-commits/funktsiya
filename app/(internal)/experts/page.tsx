@@ -340,7 +340,7 @@ export default function ExpertsPage() {
           </div>
 
           {filtered.length ? (
-            <div className="orders-grid">
+            <div className={viewMode === 'cards' ? 'orders-grid' : 'col gap16'}>
               {filtered.map((e) => (
                 <ExpertCard
                   key={e.id}

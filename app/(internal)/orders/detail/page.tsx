@@ -50,6 +50,7 @@ function OrderDetailContent() {
   const [tab, setTab] = useState('Описание');
   const [responseText, setResponseText] = useState('');
   const [propBudget, setPropBudget] = useState('');
+  const [propDeadline, setPropDeadline] = useState('');
 
   const orderId = searchParams.get('id');
   const o = orderId ? getOrderById(orderId) : null;
@@ -77,10 +78,12 @@ function OrderDetailContent() {
       orderId: o.id,
       message: responseText,
       proposedBudget: propBudget.trim() ? formatMoney(propBudget) : undefined,
+      proposedDeadline: propDeadline || undefined,
     });
     if (!ok) { notify('Вы уже откликнулись на эту заявку'); return; }
     setResponseText('');
     setPropBudget('');
+    setPropDeadline('');
     notify('Отклик отправлен');
   };
 
@@ -126,7 +129,9 @@ function OrderDetailContent() {
                 {r.proposedDeadline && <span className="row gap6 dim" style={{ fontSize: 13 }}><Icon name="clock" size={14} />{formatDeadline(r.proposedDeadline)}</span>}
               </span>
               <div className="row gap8">
-                <button className="btn btn-ghost btn-sm" onClick={() => router.push('/designers')}>Профиль</button>
+                {MOCK_DESIGNERS.some((d) => d.id === r.designerId) && (
+                  <button className="btn btn-ghost btn-sm" onClick={() => router.push(`/designers/${r.designerId}`)}>Профиль</button>
+                )}
                 {isOwner && (
                   o.assignedDesignerId === r.designerId
                     ? <button className="btn btn-sm" disabled style={{ opacity: 0.75, background: 'var(--accent-soft)', color: 'var(--green)' }}><Icon name="check" size={14} /> Выбран</button>
@@ -152,6 +157,10 @@ function OrderDetailContent() {
               <div className="field" style={{ marginTop: 12 }}>
                 <input className="input" inputMode="numeric" placeholder="Предлагаемый бюджет, ₽ (необязательно)" value={propBudget} onChange={(e) => setPropBudget(e.target.value.replace(/[^\d\s]/g, ''))} />
                 {propBudget.trim() && !isValidBudget(propBudget) && <span style={{ fontSize: 11, color: 'var(--red)', marginTop: 4, display: 'block' }}>Введите сумму числом</span>}
+              </div>
+              <div className="field" style={{ marginTop: 12 }}>
+                <label>Предлагаемый срок (необязательно)</label>
+                <input type="date" className="input" value={propDeadline} onChange={(e) => setPropDeadline(e.target.value)} />
               </div>
               <button className="btn btn-primary mt16" onClick={handleSubmitResponse} disabled={!responseText.trim()}>Отправить отклик</button>
             </div>
@@ -289,7 +298,7 @@ function OrderDetailContent() {
 
       <div className="detail__grid">
         <div className="col gap20" style={{ minWidth: 0 }}>
-          <Main />
+          {Main()}
         </div>
 
         <div className="col gap20">
