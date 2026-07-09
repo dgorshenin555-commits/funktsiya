@@ -841,15 +841,19 @@ function Steps() {
   const [cur, setCur] = React.useState({ x: 90, y: 90 });
   const [hit, setHit] = React.useState(false);
   const stageRef = React.useRef(null);
+  const elapsedRef = React.useRef(0);
   const dur = 3600;
+  React.useEffect(() => { elapsedRef.current = 0; }, [active]);
   React.useEffect(() => {
     if (paused) return;
-    let raf; const t0 = performance.now();
+    let raf; const t0 = performance.now() - elapsedRef.current;
     const tick = (t) => {
-      const p = Math.min(100, ((t - t0) / dur) * 100);
+      const elapsed = t - t0;
+      elapsedRef.current = elapsed;
+      const p = Math.min(100, (elapsed / dur) * 100);
       setProgress(p);
       if (p < 100) raf = requestAnimationFrame(tick);
-      else { setProgress(0); setActive(a => (a + 1) % steps.length); }
+      else { setProgress(0); elapsedRef.current = 0; setActive(a => (a + 1) % steps.length); }
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
@@ -1260,7 +1264,7 @@ const ROUTE_MAP = {
   auth: '/auth', 'order-new': '/orders/new', landing: '/', dashboard: '/dashboard',
   designers: '/designers', experts: '/experts', manufacturers: '/manufacturers',
   expertise: '/expertise', standards: '/standards', chat: '/chat',
-  analytics: '/analytics', settings: '/settings', orders: '/orders', pricing: '/auth',
+  analytics: '/analytics', settings: '/settings', orders: '/orders', pricing: '/pricing',
 };
 
 export default function Page() {

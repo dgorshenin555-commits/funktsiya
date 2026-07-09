@@ -12,7 +12,7 @@ import '../../_orders/orders.css';
 
 const SECTION_FILTERS = ['АР', 'КР', 'ЭОМ', 'ВК', 'ОВиК', 'ГС', 'ТХ', 'ПБ', 'СС', 'ЭС', 'РАСЧ', 'ЧЕРТ', '3DSK'];
 
-const SHORTLIST_KEY = 'pm_shortlist';
+const SHORTLIST_KEY = (userId?: string) => `pm_shortlist_${userId ?? 'anon'}`;
 
 const AVATAR_COLORS = [
   ['#667eea', '#764ba2'],
@@ -63,13 +63,9 @@ function resolveSpecToSection(spec: string): string | null {
     ...STAGE_RD_GROUPS.flatMap((g) => g.sections),
   ];
   const target = trimmed.toLowerCase();
-  // Ищем только среди разделов, по которым каталог умеет фильтровать —
-  // иначе «Архитектор» первым матчится на 'ПЗ' (не фильтруемый) и теряется.
-  const match = allSections
-    .filter((sec) => SECTION_FILTERS.includes(sec.code))
-    .find((sec) =>
-      sec.specialists.some((sp) => sp.toLowerCase().includes(target) || target.includes(sp.toLowerCase()))
-    );
+  const match = allSections.find((sec) =>
+    sec.specialists.some((sp) => sp.toLowerCase().includes(target) || target.includes(sp.toLowerCase()))
+  );
   if (match) return match.code;
 
   return null;
@@ -345,7 +341,8 @@ function PersonCard({ designer, onSelect, onProfile, onShortlist, inShortlist, p
 function DesignersPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { notify, getOrderById, toggleInvitedDesigner } = useApp();
+  const { notify, getOrderById, toggleInvitedDesigner, user } = useApp();
+  const shortlistKey = SHORTLIST_KEY(user?.id);
   const [search, setSearch] = useState('');
   const [regionFilter, setRegionFilter] = useState('');
   const [sectionFilter, setSectionFilter] = useState('');
@@ -377,17 +374,17 @@ function DesignersPageContent() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     try {
-      const saved = JSON.parse(localStorage.getItem(SHORTLIST_KEY) || '[]');
+      const saved = JSON.parse(localStorage.getItem(shortlistKey) || '[]');
       if (Array.isArray(saved)) setShortlist(saved.filter((x): x is string => typeof x === 'string'));
     } catch {}
-  }, []);
+  }, [shortlistKey]);
 
   const toggleShortlist = (id: string) => {
     setShortlist((prev) => {
       const inList = prev.includes(id);
       const next = inList ? prev.filter((x) => x !== id) : [...prev, id];
       if (typeof window !== 'undefined') {
-        localStorage.setItem(SHORTLIST_KEY, JSON.stringify(next));
+        localStorage.setItem(shortlistKey, JSON.stringify(next));
       }
       notify(inList ? 'Убрано из избранного' : 'Добавлено в избранное');
       return next;
