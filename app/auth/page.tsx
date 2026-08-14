@@ -129,14 +129,22 @@ function BrandMark() {
 
 export default function AuthPage() {
   const router = useRouter();
-  const { login, register, user, hydrated } = useApp();
-  const [isLogin, setIsLogin] = useState(true);
+  const { login, register, resetPasswordByCode, user, hydrated } = useApp();
+  // Три режима формы: вход / регистрация / сброс пароля по коду восстановления.
+  const [mode, setMode] = useState<'login' | 'register' | 'reset'>('login');
+  const isLogin = mode === 'login';
+  const isRegister = mode === 'register';
+  const isReset = mode === 'reset';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [company, setCompany] = useState('');
   const [role, setRole] = useState<UserRole>('customer');
+  const [code, setCode] = useState('');
   const [error, setError] = useState('');
+  const [info, setInfo] = useState('');
+  // Код восстановления показывается один раз сразу после регистрации.
+  const [recoveryCode, setRecoveryCode] = useState('');
 
   // presentation-only state (анимация персонажей, не влияет на логику входа)
   const [show, setShow] = useState(false);
@@ -146,9 +154,10 @@ export default function AuthPage() {
   const [mouse, setMouse] = useState({ x: 0, y: 0 });
 
   // Уже авторизован → в кабинет (BUG-006).
+  // Исключение: экран с кодом восстановления после регистрации — уходим по кнопке.
   useEffect(() => {
-    if (hydrated && user) router.replace('/dashboard');
-  }, [hydrated, user, router]);
+    if (hydrated && user && !recoveryCode) router.replace('/dashboard');
+  }, [hydrated, user, recoveryCode, router]);
 
   // mouse-трекинг для глаз персонажей
   useEffect(() => {
@@ -177,11 +186,12 @@ export default function AuthPage() {
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [password, show]);
 
-  const switchMode = (toLogin: boolean) => { setIsLogin(toLogin); setError(''); };
+  const switchMode = (next: 'login' | 'register' | 'reset') => { setMode(next); setError(''); setInfo(''); };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setInfo('');
     if (isLogin) {
       const ok = login(email, password);
       if (ok) {
@@ -189,14 +199,24 @@ export default function AuthPage() {
       } else {
         setError('Неверный email или пароль.');
       }
+    } else if (isReset) {
+      const ok = resetPasswordByCode(email, code, password);
+      if (ok) {
+        setCode('');
+        setPassword('');
+        setMode('login');
+        setInfo('Пароль изменён, войдите с новым паролем.');
+      } else {
+        setError('Неверный email или код восстановления.');
+      }
     } else {
       if (!name.trim()) {
         setError('Введите ФИО или название компании.');
         return;
       }
-      const ok = register({ email, name, role, company, phone: '', password });
-      if (ok) {
-        router.push('/dashboard');
+      const created = register({ email, name, role, company, phone: '', password });
+      if (created) {
+        setRecoveryCode(created);
       } else {
         setError('Этот email уже зарегистрирован — войдите в существующий аккаунт.');
       }
@@ -226,82 +246,119 @@ export default function AuthPage() {
 
         <div className="authx__form">
           <div className="authx__formwrap">
-            <div className="authx__head">
-              <h1 style={{ fontSize: 28, fontWeight: 800, margin: 0, color: '#fff' }}>{isLogin ? 'С возвращением' : 'Регистрация'}</h1>
-              <p className="muted" style={{ margin: '8px 0 0', fontSize: 14.5 }}>{isLogin ? 'Войдите для доступа к заявкам и кабинету' : 'Создайте аккаунт для работы на платформе'}</p>
-            </div>
+            {recoveryCode ? (
+              <>
+                <div className="authx__head">
+                  <h1 style={{ fontSize: 28, fontWeight: 800, margin: 0, color: '#fff' }}>Код восстановления</h1>
+                  <p className="muted" style={{ margin: '8px 0 0', fontSize: 14.5 }}>Сохраните код восстановления — он понадобится, если забудете пароль. Показывается один раз.</p>
+                </div>
 
-            <form onSubmit={handleSubmit} className="col gap18" style={{ marginTop: 30 }}>
-              {!isLogin && (
-                <>
-                  <div className="field">
-                    <label>Ваша роль</label>
-                    <div className="role-selector" role="radiogroup" aria-label="Ваша роль">
-                      {ROLES.map((r) => (
-                        <div
-                          key={r.value}
-                          className={`role-option ${role === r.value ? 'selected' : ''}`}
-                          role="radio"
-                          aria-checked={role === r.value}
-                          tabIndex={0}
-                          onClick={() => setRole(r.value)}
-                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setRole(r.value); } }}
-                        >
-                          <div className="role-option-icon"><Icon name={r.icon} size={22} /></div>
-                          <div className="role-option-label">{r.label}</div>
+                <div style={{ marginTop: 30, textAlign: 'center', fontSize: 26, fontWeight: 800, letterSpacing: 4, color: '#fff', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.16)', borderRadius: 10, padding: '18px 14px' }}>
+                  {recoveryCode}
+                </div>
+
+                <button type="button" className="btn btn-primary btn-block" style={{ height: 50, fontSize: 15, marginTop: 22 }} onClick={() => router.push('/dashboard')}>
+                  Я сохранил код — продолжить
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="authx__head">
+                  <h1 style={{ fontSize: 28, fontWeight: 800, margin: 0, color: '#fff' }}>{isLogin ? 'С возвращением' : isReset ? 'Восстановление доступа' : 'Регистрация'}</h1>
+                  <p className="muted" style={{ margin: '8px 0 0', fontSize: 14.5 }}>{isLogin ? 'Войдите для доступа к заявкам и кабинету' : isReset ? 'Введите email и код восстановления, чтобы задать новый пароль' : 'Создайте аккаунт для работы на платформе'}</p>
+                </div>
+
+                <form onSubmit={handleSubmit} className="col gap18" style={{ marginTop: 30 }}>
+                  {isRegister && (
+                    <>
+                      <div className="field">
+                        <label>Ваша роль</label>
+                        <div className="role-selector" role="radiogroup" aria-label="Ваша роль">
+                          {ROLES.map((r) => (
+                            <div
+                              key={r.value}
+                              className={`role-option ${role === r.value ? 'selected' : ''}`}
+                              role="radio"
+                              aria-checked={role === r.value}
+                              tabIndex={0}
+                              onClick={() => setRole(r.value)}
+                              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setRole(r.value); } }}
+                            >
+                              <div className="role-option-icon"><Icon name={r.icon} size={22} /></div>
+                              <div className="role-option-label">{r.label}</div>
+                            </div>
+                          ))}
                         </div>
-                      ))}
+                      </div>
+                      <div className="field">
+                        <label>ФИО / Название компании</label>
+                        <input className="input" placeholder="Иванов Иван Иванович" value={name} onChange={(e) => setName(e.target.value)} required
+                          onFocus={() => setTyping(true)} onBlur={() => setTyping(false)} />
+                      </div>
+                      <div className="field">
+                        <label>Компания (необязательно)</label>
+                        <input className="input" placeholder="ООО «Проект»" value={company} onChange={(e) => setCompany(e.target.value)}
+                          onFocus={() => setTyping(true)} onBlur={() => setTyping(false)} />
+                      </div>
+                    </>
+                  )}
+
+                  <div className="field">
+                    <label>Email</label>
+                    <input className="input" type="email" placeholder="mail@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required
+                      autoComplete="off" onFocus={() => setTyping(true)} onBlur={() => setTyping(false)} />
+                  </div>
+
+                  {isReset && (
+                    <div className="field">
+                      <label>Код восстановления</label>
+                      <input className="input" placeholder="XXXX-XXXX" value={code} onChange={(e) => setCode(e.target.value)} required
+                        autoComplete="off" onFocus={() => setTyping(true)} onBlur={() => setTyping(false)} />
+                      <span style={{ fontSize: 11, color: 'var(--text-mute)', marginTop: 4, display: 'block' }}>Код выдавался при регистрации. Если у вашего аккаунта кода нет — войдите по email или зарегистрируйтесь заново.</span>
                     </div>
-                  </div>
-                  <div className="field">
-                    <label>ФИО / Название компании</label>
-                    <input className="input" placeholder="Иванов Иван Иванович" value={name} onChange={(e) => setName(e.target.value)} required
-                      onFocus={() => setTyping(true)} onBlur={() => setTyping(false)} />
-                  </div>
-                  <div className="field">
-                    <label>Компания (необязательно)</label>
-                    <input className="input" placeholder="ООО «Проект»" value={company} onChange={(e) => setCompany(e.target.value)}
-                      onFocus={() => setTyping(true)} onBlur={() => setTyping(false)} />
-                  </div>
-                </>
-              )}
+                  )}
 
-              <div className="field">
-                <label>Email</label>
-                <input className="input" type="email" placeholder="mail@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required
-                  autoComplete="off" onFocus={() => setTyping(true)} onBlur={() => setTyping(false)} />
-              </div>
+                  <div className="field">
+                    <label>{isReset ? 'Новый пароль' : 'Пароль'}</label>
+                    <div className="inputwrap">
+                      <input className="input" type={show ? 'text' : 'password'} placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6}
+                        onFocus={() => setTyping(true)} onBlur={() => setTyping(false)} />
+                      <button type="button" className="inputwrap__btn" onClick={() => setShow((s) => !s)} title={show ? 'Скрыть' : 'Показать'} aria-label={show ? 'Скрыть пароль' : 'Показать пароль'}>
+                        <Icon name={show ? 'eyeOff' : 'eye'} size={18} />
+                      </button>
+                    </div>
+                    {!isLogin && <span style={{ fontSize: 11, color: 'var(--text-mute)', marginTop: 4, display: 'block' }}>Минимум 6 символов</span>}
+                    {isLogin && <a className="link" style={{ fontSize: 12.5, marginTop: 6, display: 'inline-block' }} onClick={() => switchMode('reset')}>Забыли пароль?</a>}
+                  </div>
 
-              <div className="field">
-                <label>Пароль</label>
-                <div className="inputwrap">
-                  <input className="input" type={show ? 'text' : 'password'} placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6}
-                    onFocus={() => setTyping(true)} onBlur={() => setTyping(false)} />
-                  <button type="button" className="inputwrap__btn" onClick={() => setShow((s) => !s)} title={show ? 'Скрыть' : 'Показать'} aria-label={show ? 'Скрыть пароль' : 'Показать пароль'}>
-                    <Icon name={show ? 'eyeOff' : 'eye'} size={18} />
+                  {error && (
+                    <div role="alert" style={{ background: 'rgba(244,113,127,0.12)', color: '#f4717f', border: '1px solid rgba(244,113,127,0.32)', borderRadius: 8, padding: '10px 14px', fontSize: 13.5 }}>
+                      {error}
+                    </div>
+                  )}
+
+                  {info && (
+                    <div role="status" style={{ background: 'rgba(52,211,153,0.12)', color: 'var(--green)', border: '1px solid rgba(52,211,153,0.32)', borderRadius: 8, padding: '10px 14px', fontSize: 13.5 }}>
+                      {info}
+                    </div>
+                  )}
+
+                  <button type="submit" className="btn btn-primary btn-block" style={{ height: 50, fontSize: 15 }}>
+                    {isLogin ? 'Войти' : isReset ? 'Сбросить пароль' : 'Зарегистрироваться'}
                   </button>
-                </div>
-                {!isLogin && <span style={{ fontSize: 11, color: 'var(--text-mute)', marginTop: 4, display: 'block' }}>Минимум 6 символов</span>}
-              </div>
+                </form>
 
-              {error && (
-                <div role="alert" style={{ background: 'rgba(244,113,127,0.12)', color: '#f4717f', border: '1px solid rgba(244,113,127,0.32)', borderRadius: 8, padding: '10px 14px', fontSize: 13.5 }}>
-                  {error}
-                </div>
-              )}
-
-              <button type="submit" className="btn btn-primary btn-block" style={{ height: 50, fontSize: 15 }}>
-                {isLogin ? 'Войти' : 'Зарегистрироваться'}
-              </button>
-            </form>
-
-            <p className="muted" style={{ textAlign: 'center', marginTop: 26, fontSize: 14 }}>
-              {isLogin ? (
-                <>Нет аккаунта? <a className="link" onClick={() => switchMode(false)}>Зарегистрируйтесь</a></>
-              ) : (
-                <>Уже есть аккаунт? <a className="link" onClick={() => switchMode(true)}>Войдите</a></>
-              )}
-            </p>
+                <p className="muted" style={{ textAlign: 'center', marginTop: 26, fontSize: 14 }}>
+                  {isLogin ? (
+                    <>Нет аккаунта? <a className="link" onClick={() => switchMode('register')}>Зарегистрируйтесь</a></>
+                  ) : isReset ? (
+                    <>Вспомнили пароль? <a className="link" onClick={() => switchMode('login')}>Войдите</a></>
+                  ) : (
+                    <>Уже есть аккаунт? <a className="link" onClick={() => switchMode('login')}>Войдите</a></>
+                  )}
+                </p>
+              </>
+            )}
           </div>
         </div>
       </div>

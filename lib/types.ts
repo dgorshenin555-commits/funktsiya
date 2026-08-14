@@ -8,6 +8,7 @@ export interface User {
   name: string;
   role: UserRole;
   password?: string;
+  recoveryCode?: string;
   company?: string;
   phone?: string;
   avatar?: string;

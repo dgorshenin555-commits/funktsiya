@@ -49,7 +49,7 @@ export function ProfileForm() {
           <div className="grid-2" style={{ gap: 12, marginBottom: 22 }}>
             {ROLES.map((r) => (
               <button type="button" key={r.value} className={'rolecard' + (role === r.value ? ' is-sel' : '')} onClick={() => {
-                if (r.value !== user.role && !window.confirm('При смене роли заявки и отклики текущей роли перестанут отображаться в кабинете (данные не удаляются — при возврате роли доступ восстановится). Рекомендуем отдельный профиль для каждой роли. Сменить роль?')) return;
+                if (r.value !== user.role && !window.confirm(`Вам будут доступны только данные для роли «${r.label}». Данные других ролей не удаляются и снова станут доступны при обратной смене роли. Рекомендуем отдельный профиль для каждой роли. Сменить роль?`)) return;
                 setRole(r.value); setSaved(false);
               }}>
                 <Icon name={r.icon} size={24} /><span>{r.label}</span>

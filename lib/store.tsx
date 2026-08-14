@@ -14,7 +14,9 @@ interface AppState {
 interface AppContextType extends AppState {
   hydrated: boolean;
   login: (email: string, password: string) => boolean;
-  register: (user: Omit<User, 'id' | 'createdAt'>) => boolean;
+  // Возвращает код восстановления при успехе (показывается пользователю один раз), false — при отказе.
+  register: (user: Omit<User, 'id' | 'createdAt'>) => string | false;
+  resetPasswordByCode: (email: string, code: string, newPassword: string) => boolean;
   logout: () => void;
   updateUser: (patch: Partial<Omit<User, 'id' | 'createdAt'>>) => void;
   addOrder: (order: Omit<Order, 'id' | 'createdAt' | 'responsesCount' | 'customerId' | 'customerName'>) => Order;
@@ -41,6 +43,23 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 function generateId() {
   return Math.random().toString(36).substring(2, 9) + Date.now().toString(36);
+}
+
+// Код восстановления пароля вида XXXX-XXXX. Алфавит без похожих символов (I, O, 0, 1).
+const RECOVERY_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+function generateRecoveryCode() {
+  let out = '';
+  for (let i = 0; i < 8; i++) {
+    if (i === 4) out += '-';
+    out += RECOVERY_ALPHABET[Math.floor(Math.random() * RECOVERY_ALPHABET.length)];
+  }
+  return out;
+}
+
+// Сравнение кодов без учёта регистра, дефисов и пробелов.
+function normalizeRecoveryCode(code: string) {
+  return (code || '').replace(/[\s-]/g, '').toUpperCase();
 }
 
 const DEFAULT_FAVORITES = MOCK_STANDARDS.filter((s) => s.isFeatured).map((s) => s.code);
@@ -95,7 +114,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // Проверяем пароль. У старых аккаунтов пароль мог не сохраниться —
     // для обратной совместимости такие пускаем по email.
     if (found.password && found.password !== password) return false;
-    const { password: _pw, ...safe } = found;
+    const { password: _pw, recoveryCode: _rc, ...safe } = found;
     setState((prev) => ({ ...prev, user: safe }));
     return true;
   }, []);
@@ -110,18 +129,34 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
     const name = (userData.name || '').trim();
     if (!name) return false;
+    const recoveryCode = generateRecoveryCode();
     const newUser: User = {
       ...userData,
       email,
       name,
       company: userData.company?.trim(),
+      recoveryCode,
       id: generateId(),
       createdAt: new Date().toISOString(),
     };
     users.push(newUser);
     localStorage.setItem('pm_users', JSON.stringify(users));
-    const { password: _pw, ...safe } = newUser;
+    const { password: _pw, recoveryCode: _rc, ...safe } = newUser;
     setState((prev) => ({ ...prev, user: safe }));
+    return recoveryCode;
+  }, []);
+
+  // Сброс пароля по коду восстановления. Пользователь не в сессии — правим только pm_users.
+  const resetPasswordByCode = useCallback((email: string, code: string, newPassword: string) => {
+    if (typeof window === 'undefined') return false;
+    const users = JSON.parse(localStorage.getItem('pm_users') || '[]') as User[];
+    const idx = users.findIndex((u) => u.email.trim().toLowerCase() === email.trim().toLowerCase());
+    if (idx < 0) return false;
+    const stored = users[idx].recoveryCode;
+    if (!stored) return false;
+    if (normalizeRecoveryCode(stored) !== normalizeRecoveryCode(code)) return false;
+    users[idx] = { ...users[idx], password: newPassword };
+    localStorage.setItem('pm_users', JSON.stringify(users));
     return true;
   }, []);
 
@@ -292,7 +327,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         ...state,
         favoriteStandards,
         hydrated: mounted,
-        login, register, logout, updateUser,
+        login, register, resetPasswordByCode, logout, updateUser,
         addOrder, addResponse, hasResponded, selectExecutor, toggleInvitedDesigner,
         getOrderById, getResponsesForOrder,
         getMyOrders, getMyResponses,
