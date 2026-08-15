@@ -1,0 +1,12 @@
+/* Шрифты варианта Б.
+
+   Вынесено отдельным файлом, потому что v2.css генерируется скриптом
+   из design-handoff-v2/new_design.css и при пересборке перезаписывается.
+   Здесь переменные --fd/--fb/--fm перенаправляются на шрифты,
+   подключённые через next/font/google в layout.tsx. */
+
+.nd {
+  --fd: var(--font-display), "Golos Text", system-ui, sans-serif;
+  --fb: var(--font-body), system-ui, -apple-system, sans-serif;
+  --fm: var(--font-mono), ui-monospace, monospace;
+}
