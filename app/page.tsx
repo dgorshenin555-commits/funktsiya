@@ -875,14 +875,6 @@ function Steps() {
       <p className="tl-eyebrow">Как это работает</p>
       <h2 className="tl-h2">Три шага для запуска в работу</h2>
       <div className="tl-cz" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
-        <div className="tl-cz__stage" ref={stageRef}>
-          <div className="tl-cz__slide" key={active}><Active /></div>
-          <span className="tl-cursor tl-cz-cursor" style={{ transform: `translate(${cur.x}px, ${cur.y}px)` }}>
-            <span className={'tl-cursor__in' + (hit ? ' is-click' : '')}>
-              <svg width="30" height="30" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3l14 7-6.2 1.8L10 19z" fill="var(--accent-2)" stroke="#fff" strokeWidth="1.5" strokeLinejoin="round" /></svg>
-            </span>
-          </span>
-        </div>
         <div className="tl-cz__btns">
           {steps.map((s, i) => (
             <button key={s.n} className={'tl-cz__btn' + (i === active ? ' is-active' : '')} onClick={() => { setActive(i); setProgress(0); }}>
@@ -892,6 +884,14 @@ function Steps() {
               <p>{s.desc}</p>
             </button>
           ))}
+        </div>
+        <div className="tl-cz__stage" ref={stageRef}>
+          <div className="tl-cz__slide" key={active}><Active /></div>
+          <span className="tl-cursor tl-cz-cursor" style={{ transform: `translate(${cur.x}px, ${cur.y}px)` }}>
+            <span className={'tl-cursor__in' + (hit ? ' is-click' : '')}>
+              <svg width="30" height="30" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3l14 7-6.2 1.8L10 19z" fill="var(--accent-2)" stroke="#fff" strokeWidth="1.5" strokeLinejoin="round" /></svg>
+            </span>
+          </span>
         </div>
       </div>
     </section>
