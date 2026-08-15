@@ -403,7 +403,10 @@
 .fx .price { font-size: 18px; font-weight: 800; color: #fff; letter-spacing: -.01em; }
 .fx .divider { height: 1px; background: var(--border); border: none; margin: 0; }
 .fx .section-title { font-size: 19px; font-weight: 700; color: #fff; margin: 0; }
-.fx .fade-in { animation: fade .4s ease both; }
+/* Без fill-mode: с ним transform остаётся после анимации (identity-матрица),
+   контейнер навсегда создаёт stacking context и запирает z-index попапов внутри
+   (календарь уходил под карточку превью). Delay у анимации нет — fill не нужен. */
+.fx .fade-in { animation: fade .4s ease; }
 @keyframes fade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 
 /* === layouts.css === */
@@ -483,7 +486,7 @@
 .fx .authx__glow--2 { width: 420px; height: 420px; bottom: -120px; left: -80px; background: rgba(0,0,0,.18); }
 .fx .authx__stage { position: relative; z-index: 2; flex: 1; display: flex; align-items: flex-end; justify-content: center; min-height: 0; }
 .fx .chars { position: relative; width: 480px; height: 360px; }
-.fx .chars-embed { position: relative; }
+.fx .chars-embed { position: relative; pointer-events: none; }
 .fx .chars-embed .chars { position: absolute; top: 0; left: 0; }
 .fx .char { position: absolute; bottom: 0; transition: transform .6s ease, height .6s ease; transform-origin: bottom center; }
 .fx .char__eyes { position: absolute; display: flex; left: 30px; top: 38px; transition: left .55s ease, top .55s ease; }
@@ -657,6 +660,11 @@
 .fx .chip-toggle.is-sel { background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent-2); }
 .fx .dropzone { border: 1.5px dashed var(--border-2); border-radius: var(--r-md); padding: 44px; text-align: center; color: var(--text-dim); display: flex; flex-direction: column; align-items: center; gap: 14px; font-size: 14px; }
 .fx .newgrid__preview { position: sticky; top: 0; }
+/* В одноколоночной раскладке превью идёт после формы: sticky заставлял его
+   наезжать на форму и календарь при прокрутке (перехват кликов). */
+@media (max-width: 1000px) {
+.fx .newgrid__preview { position: static; }
+}
 .fx .catalog { display: grid; grid-template-columns: 1fr 340px; gap: 24px; align-items: start; }
 @media (max-width: 1100px) {
 .fx .catalog { grid-template-columns: 1fr; }

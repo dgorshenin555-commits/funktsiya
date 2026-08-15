@@ -757,7 +757,7 @@
 /* === маскоты (из layouts.css) === */
 .chars { position: relative; width: 480px; height: 360px; }
 /* embeddable, scalable version of the login mascots for use on other pages */
-.chars-embed { position: relative; }
+.chars-embed { position: relative; pointer-events: none; }
 .chars-embed .chars { position: absolute; top: 0; left: 0; }
 .char { position: absolute; bottom: 0; transition: transform .6s ease, height .6s ease; transform-origin: bottom center; }
 .char__eyes { position: absolute; display: flex; left: 30px; top: 38px; transition: left .55s ease, top .55s ease; }
