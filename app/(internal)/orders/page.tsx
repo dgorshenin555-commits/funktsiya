@@ -8,7 +8,7 @@ import { useState, useRef, useLayoutEffect, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useApp } from '@/lib/store';
 import { Icon } from '../../_orders/icons';
-import { StatusBadge, STATUS_BADGE, typeImage, typeLabel, urgencyBucket, formatDeadline } from '../../_orders/shared';
+import { StatusBadge, STATUS_BADGE, typeImage, typeLabel, urgencyBucket, formatDeadline, plural } from '../../_orders/shared';
 import '../../_orders/orders.css';
 
 const TYPE_OPTIONS = ['Все типы', 'Коммерческая недвижимость', 'Жилая недвижимость', 'Промышленность', 'Частное строительство', 'Линейные объекты', 'Здания и сооружения'];
@@ -147,7 +147,7 @@ function OrderCard({ o, go }) {
           {waiting
             ? <span className="row gap8" style={{ color: 'var(--amber)', fontWeight: 700 }}><Icon name="wallet" size={16} />{o.budget || 'Ждём предложений'}</span>
             : <span className="price row gap8"><Icon name="wallet" size={17} style={{ color: 'var(--accent-2)' }} />{o.budget}</span>}
-          <span className="row gap6 dim" style={{ fontSize: 13 }}><Icon name="comment" size={15} />{o.responsesCount} откликов</span>
+          <span className="row gap6 dim" style={{ fontSize: 13 }}><Icon name="comment" size={15} />{o.responsesCount} {plural(o.responsesCount, ['отклик', 'отклика', 'откликов'])}</span>
         </div>
       </div>
     </div>

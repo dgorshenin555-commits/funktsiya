@@ -10,7 +10,7 @@ import { useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useApp } from '@/lib/store';
 import { Icon } from '../../../_orders/icons';
-import { Avatar, StatusBadge, typeImage, typeLabel, formatDeadline, formatMoney } from '../../../_orders/shared';
+import { Avatar, StatusBadge, typeImage, typeLabel, formatDeadline, formatMoney, plural } from '../../../_orders/shared';
 import { STAGE_LABELS, SCALE_LABELS } from '@/lib/constants';
 import { MOCK_DESIGNERS } from '@/lib/mock-data';
 import '../../../_orders/orders.css';
@@ -104,7 +104,7 @@ function OrderDetailContent() {
       <div className="col gap16" style={{ minWidth: 0 }}>
         <div className="row between" style={{ alignItems: 'flex-end' }}>
           <h3 className="section-title" style={{ margin: 0 }}>Отклики на заявку</h3>
-          <span className="dim" style={{ fontSize: 13 }}>{responses.length} откликов</span>
+          <span className="dim" style={{ fontSize: 13 }}>{responses.length} {plural(responses.length, ['отклик', 'отклика', 'откликов'])}</span>
         </div>
 
         {responses.length === 0 && (

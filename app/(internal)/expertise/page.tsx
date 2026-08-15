@@ -13,6 +13,7 @@ import { useApp } from '@/lib/store';
 import { MOCK_EXPERTISE_REQUESTS, MOCK_EXPERTISE_PROJECTS } from '@/lib/mock-data';
 import { OBJECT_TYPE_LABELS } from '@/lib/constants';
 import { Icon } from '../../_orders/icons';
+import { plural } from '../../_orders/shared';
 import '../../_orders/orders.css';
 
 type TabType = 'marketplace' | 'dashboard';
@@ -135,7 +136,7 @@ export default function ExpertisePage() {
                   <div className="row between" style={{ marginTop: 'auto' }}>
                     <div>
                       <div className="price">{req.budget || 'По договорённости'}</div>
-                      <div className="dim" style={{ fontSize: 12 }}>{req.responsesCount} откликов</div>
+                      <div className="dim" style={{ fontSize: 12 }}>{req.responsesCount} {plural(req.responsesCount, ['отклик', 'отклика', 'откликов'])}</div>
                     </div>
                     <button className="btn btn-primary btn-sm" onClick={(ev) => { ev.stopPropagation(); openDetail(req.id); }}>Открыть <Icon name="arrowRight" size={14} /></button>
                   </div>

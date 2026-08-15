@@ -73,6 +73,16 @@ export function formatMoney(value) {
   return `${grouped} ₽`;
 }
 
+/* Русское склонение при числительном: plural(1, ['отклик','отклика','откликов']) → «отклик». */
+export function plural(n, forms) {
+  const x = Math.abs(Number(n) || 0) % 100;
+  const y = x % 10;
+  if (x > 10 && x < 20) return forms[2];
+  if (y > 1 && y < 5) return forms[1];
+  if (y === 1) return forms[0];
+  return forms[2];
+}
+
 export function formatDeadline(deadline) {
   if (!deadline) return 'по согласованию';
   const raw = String(deadline).trim();
