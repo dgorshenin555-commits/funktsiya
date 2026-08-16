@@ -6,7 +6,9 @@ const nextConfig: NextConfig = {
   images: {
     unoptimized: true,
   },
-  basePath: process.env.NODE_ENV === 'production' ? '/projekt-market-' : '',
+  // На GitHub Pages сайт живёт в подпапке с именем репозитория,
+  // поэтому в проде все пути должны идти с этим префиксом.
+  basePath: process.env.NODE_ENV === 'production' ? '/funktsiya' : '',
 };
 
 export default nextConfig;
