@@ -7,7 +7,6 @@ import { SCREENS } from "./registry";
 const { useState } = React;
 const Arr = ({ s = 14 }) => (<svg width={s} height={s} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M3 8h10M9 4l4 4-4 4" /></svg>);
 const Search = ({ s = 15 }) => (<svg width={s} height={s} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><circle cx="7" cy="7" r="4.4" /><path d="M10.4 10.4L14 14" /></svg>);
-const Chk = ({ s = 11 }) => (<svg width={s} height={s} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M3 8.5l3.5 3.5L13 4.5" /></svg>);
 
 /* ============ нормативы ============ */
 const DOCS = [
@@ -147,65 +146,10 @@ function Messages() {
   );
 }
 
-/* ============ доверие ============ */
-const STEPS = [
-  { done: true, t: "Организация подтверждена", d: "ИНН, выписка ЕГРЮЛ, руководитель." },
-  { done: true, t: "Членство в СРО", d: "Проверено по реестру НОПРИЗ." },
-  { done: true, t: "Страхование ответственности", d: "Полис на 30 млн ₽ до 04.2027." },
-  { done: false, t: "Портфолио", d: "Добавьте 3 проекта — это самый быстрый способ поднять индекс." },
-  { done: false, t: "Отзывы заказчиков", d: "Запросите отзывы по 2 закрытым сделкам." },
-];
-const FACT = [["История сделок", 92], ["Соблюдение сроков", 88], ["Документы и СРО", 100], ["Отзывы", 64], ["Портфолио", 40]];
-
-function Trust() {
-  return (
-    <div className="scroll">
-      <div className="wrap page">
-        <div className="two">
-          <div>
-            <div className="page__h">
-              <span className="lbl">Аккаунт</span>
-              <h1>Доверие</h1>
-              <p>Индекс доверия — это то, что заказчик видит первым. Он собирается из документов, сроков и отзывов. Ничего заполнять вручную не нужно: подтвердите данные один раз.</p>
-            </div>
-            <div className="box">
-              <h3>Что осталось подтвердить</h3>
-              {STEPS.map(s => (
-                <div className={"chk-row" + (s.done ? " done" : "")} key={s.t}>
-                  <i>{s.done ? <Chk /> : ""}</i>
-                  <div><h4>{s.t}</h4><p>{s.d}</p></div>
-                  {s.done ? <span className="badge ok">готово</span> : <button className="btn btn-line btn-sm">Заполнить</button>}
-                </div>
-              ))}
-            </div>
-          </div>
-          <div style={{ display: "grid", gap: 14 }}>
-            <div className="box" style={{ display: "grid", gap: 14, textAlign: "center", justifyItems: "center" }}>
-              <span className="lbl">Ваш индекс</span>
-              <b className="num" style={{ fontFamily: "var(--fd)", fontSize: 62, letterSpacing: "-.05em", lineHeight: 1 }}>78</b>
-              <span className="badge ok">уровень «Надёжный»</span>
-              <p>До уровня «Эталон» — 7 пунктов. Портфолио и отзывы дадут больше всего.</p>
-            </div>
-            <div className="box" style={{ display: "grid", gap: 14 }}>
-              <span className="lbl">Из чего собран</span>
-              {FACT.map(([t, v]) => (
-                <div key={t} style={{ display: "grid", gap: 6 }}>
-                  <div className="row" style={{ justifyContent: "space-between" }}><span style={{ fontSize: 13.5 }}>{t}</span><span className="num" style={{ fontSize: 13 }}>{v}</span></div>
-                  <div className="bar"><i style={{ width: v + "%", background: v >= 85 ? "var(--moss)" : v >= 60 ? "var(--ink)" : "var(--clay)" }} /></div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 /* ============ тарифы ============ */
 const PLANS = [
   { t: "Заказчик", p: "0 ₽", s: "навсегда", f: ["Публикация заявок без лимита", "Отклики и сравнение исполнителей", "Переписка и файлы", "Нормативы"], b: "Уже включено", line: true },
-  { t: "Исполнитель", p: "4 900 ₽", s: "в месяц", f: ["Доступ ко всем заявкам", "Отклики без ограничений", "Индекс доверия и бейдж", "Профиль в каталоге"], b: "Подключить", hot: true },
+  { t: "Исполнитель", p: "4 900 ₽", s: "в месяц", f: ["Доступ ко всем заявкам", "Отклики без ограничений", "Бейдж проверенного исполнителя", "Профиль в каталоге"], b: "Подключить", hot: true },
   { t: "Компания", p: "по договору", s: "от 10 сотрудников", f: ["Команда и роли", "Свои шаблоны заявок", "Интеграции и API", "Персональный менеджер"], b: "Обсудить" },
 ];
 
@@ -281,4 +225,4 @@ function Settings() {
   );
 }
 
-Object.assign(SCREENS, { Standards, Messages, Trust, Pricing, Settings });
+Object.assign(SCREENS, { Standards, Messages, Pricing, Settings });

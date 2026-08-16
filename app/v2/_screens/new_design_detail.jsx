@@ -15,7 +15,6 @@ const Ini = ({ n, size = 38 }) => (<div className="pini num" style={{ width: siz
 const ROWS = [
   ["Цена", c => c.price, (c, all) => c.pn === Math.min(...all.map(x => x.pn))],
   ["Срок", c => c.d, (c, all) => c.dn === Math.min(...all.map(x => x.dn))],
-  ["Индекс доверия", c => c.tr, (c, all) => c.tr === Math.max(...all.map(x => x.tr))],
   ["Опыт", c => c.yrs + " лет", (c, all) => c.yrs === Math.max(...all.map(x => x.yrs))],
   ["Похожих проектов", c => c.same, (c, all) => c.same === Math.max(...all.map(x => x.same))],
   ["Разделы закрывает", c => c.cover, c => c.cover === "все"],
@@ -67,9 +66,9 @@ function Compare({ cands, onClose }) {
 
 /* ---------- деталь заявки ---------- */
 const BIDS = [
-  { n: "ТС", name: "ООО «Техносфера»", city: "Нижний Новгород", note: "СРО · 14 лет · 62 проекта", price: "1 150 000 ₽", pn: 1150, d: "42 дня", dn: 42, tr: 91, yrs: 14, same: 9, cover: "все", rev: 28, late: "0,8%", sro: true, resp: "через 2 ч" },
-  { n: "ПВ", name: "ПБ «Вектор»", city: "Самара", note: "СРО · 9 лет · 38 проектов", price: "980 000 ₽", pn: 980, d: "50 дней", dn: 50, tr: 78, yrs: 9, same: 4, cover: "3 из 4", rev: 9, late: "4,6%", sro: true, resp: "через 6 ч" },
-  { n: "ИГ", name: "ИнжГрупп", city: "Казань", note: "СРО · 11 лет · 51 проект", price: "1 240 000 ₽", pn: 1240, d: "38 дней", dn: 38, tr: 84, yrs: 11, same: 7, cover: "все", rev: 22, late: "1,2%", sro: true, resp: "через 3 ч" },
+  { n: "ТС", name: "ООО «Техносфера»", city: "Нижний Новгород", note: "СРО · 14 лет · 62 проекта", price: "1 150 000 ₽", pn: 1150, d: "42 дня", dn: 42, yrs: 14, same: 9, cover: "все", rev: 28, late: "0,8%", sro: true, resp: "через 2 ч" },
+  { n: "ПВ", name: "ПБ «Вектор»", city: "Самара", note: "СРО · 9 лет · 38 проектов", price: "980 000 ₽", pn: 980, d: "50 дней", dn: 50, yrs: 9, same: 4, cover: "3 из 4", rev: 9, late: "4,6%", sro: true, resp: "через 6 ч" },
+  { n: "ИГ", name: "ИнжГрупп", city: "Казань", note: "СРО · 11 лет · 51 проект", price: "1 240 000 ₽", pn: 1240, d: "38 дней", dn: 38, yrs: 11, same: 7, cover: "все", rev: 22, late: "1,2%", sro: true, resp: "через 3 ч" },
 ];
 const SECS = [["ОВ", "Отопление и вентиляция"], ["ЭОМ", "Электрооборудование"], ["АР", "Архитектурные решения"], ["ТХ", "Технологические решения"]];
 const FILES = [["PDF", "Техническое задание.pdf", "2,4 МБ"], ["DWG", "Обмерные чертежи.dwg", "18,1 МБ"], ["XLSX", "Опросный лист по оборудованию.xlsx", "340 КБ"]];
@@ -132,7 +131,6 @@ function OrderDetail({ go }) {
                       <div className="num" style={{ fontSize: 14.5 }}>{b.price}</div>
                       <div className="lbl" style={{ marginTop: 4 }}>{b.d}</div>
                     </div>
-                    <span className="trust"><span className="dot" style={{ background: b.tr >= 85 ? "var(--moss)" : "var(--acid-d)" }} />{b.tr}</span>
                   </div>
                 ))}
               </div>
@@ -171,11 +169,6 @@ function OrderDetail({ go }) {
                 ))}
               </div>
             </div>
-            <div className="box" style={{ display: "grid", gap: 10 }}>
-              <span className="lbl">Рыночный ориентир</span>
-              <h3 style={{ margin: 0 }}>1 200 000 ₽ — в рынке</h3>
-              <p>По похожим заявкам платят от 950 000 до 1 450 000 ₽. Отклики дешевле 950 000 ₽ чаще уходят в доработку.</p>
-            </div>
           </div>
         </div>
       </div>
@@ -208,7 +201,7 @@ function ProProfile({ go }) {
             </div>
           </div>
           <div style={{ display: "grid", gap: 10, justifyItems: "end" }}>
-            <span className="trust" style={{ height: 30, fontSize: 13 }}><span className="dot" style={{ background: "var(--moss)" }} />Индекс доверия <b>91</b></span>
+            <span className="trust" style={{ height: 30, fontSize: 13 }}><span className="dot" style={{ background: "var(--moss)" }} />Проверенная организация</span>
             <div className="row g8">
               <button className="btn btn-line btn-sm" onClick={() => go("msg")}>Написать</button>
               <button className="btn btn-ink btn-sm">Пригласить в заявку <Arr s={13} /></button>

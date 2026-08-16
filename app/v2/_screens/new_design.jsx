@@ -5,7 +5,29 @@
 import * as React from "react";
 import { SCREENS } from "./registry";
 import { IMG } from "../_assets";
+import { useApp } from "@/lib/store";
+import { OBJECT_TYPE_LABELS, STAGE_LABELS } from "@/lib/constants";
 const { useState } = React;
+
+/* Заявка общего хранилища → карточка списка Б. Поле live отличает настоящие
+   заявки от демо-витрины REQS. */
+const SCALE_RU = { single: "Один специалист", team: "Команда", org: "Организация" };
+const fmtPubl = iso => {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "недавно";
+  return d.toDateString() === new Date().toDateString() ? "сегодня" : d.toLocaleDateString("ru-RU");
+};
+const orderToCard = (o, uid) => ({
+  id: o.id, live: true, mine: !!uid && o.customerId === uid,
+  t: o.title, city: o.region || "Регион не указан",
+  type: OBJECT_TYPE_LABELS[o.objectType] || o.objectType,
+  stage: STAGE_LABELS[o.stage] || o.stage,
+  secs: o.sections || [], budget: o.budget || "ждём предложений",
+  days: o.deadline ? "до " + o.deadline : "по согласованию",
+  resp: o.responsesCount || 0, bids: [], publ: fmtPubl(o.createdAt),
+  kind: "Проектирование", attract: SCALE_RU[o.scale] || o.scale,
+  note: o.description || "", files: 0, objType: OBJECT_TYPE_LABELS[o.objectType] || o.objectType,
+});
 
 const Mark = ({ s = 26 }) => (
   <svg width={s} height={s} viewBox="0 0 40 40" fill="none">
@@ -32,7 +54,7 @@ const Init = ({ n, bg = "#E8E5DD", c = "#14161A", size = 30 }) => (
 const CAPS = [
   { n: "01", t: "Заявка вместо тендера", c: "var(--acid)", d: "Описание своими словами, разделы подскажет платформа. Публикация бесплатна, отклики приходят только от организаций с действующим СРО.", cta: "Создать заявку", go: "new" },
   { n: "02", t: "Сравнение откликов", c: "var(--signal)", d: "Цена, срок, состав работ и субподряд — в одной таблице. Видно, что именно входит в предложение, а что вынесено за скобки.", cta: "Открыть сравнение", go: "detail" },
-  { n: "03", t: "Индекс доверия", c: "var(--moss)", d: "СРО, страхование, история сделок и соблюдение сроков сводятся в одну оценку — без сбора справок вручную.", cta: "Как считается", go: "trust" },
+  { n: "03", t: "Проверенные исполнители", c: "var(--moss)", d: "Платформа сверяет ИНН и выписку ЕГРЮЛ, членство в СРО по реестру НОПРИЗ и полис страхования — без сбора справок вручную.", cta: "Каталог исполнителей", go: "pick" },
   { n: "04", t: "Подбор решений", c: "var(--plum)", d: "По разделу проекта платформа предлагает оборудование и материалы из каталога производителей, включая аналоги под замену.", cta: "Подобрать решение", go: "ai" },
   { n: "05", t: "Экспертиза разделов", c: "var(--clay)", d: "Замечания приходят с привязкой к листу и пункту норматива, история правок сохраняется по каждому разделу.", cta: "Смотреть замечания", go: "exp" },
   { n: "06", t: "Нормативы под рукой", c: "var(--ink)", d: "Актуальные редакции СП и ГОСТ с отметкой изменений — ссылка на пункт вставляется прямо в замечание или переписку.", cta: "Открыть нормативы", go: "norm" },
@@ -41,7 +63,7 @@ const CAPS = [
 const FLOW = [
   { t: "Заявка", d: "Три шага в форме — разделы подскажем сами.", v: (<><div className="ln m" /><div className="ln s" /><div className="ln a s" /></>) },
   { t: "Отклики", d: "Предложения от исполнителей с СРО и историей сделок.", v: (<><div className="avs"><i /><i /><i className="a" /><i /></div><div className="ln s" /></>) },
-  { t: "Выбор", d: "Сравнение рядом: цена, срок, доверие.", v: (<><div className="row-mini"><span className="b">1</span>Цена<span className="spacer" /><span className="num">1,15 млн</span></div><div className="mini-pipe"><i className="a" /><i className="on" /><i /></div></>) },
+  { t: "Выбор", d: "Сравнение рядом: цена, срок, опыт.", v: (<><div className="row-mini"><span className="b">1</span>Цена<span className="spacer" /><span className="num">1,15 млн</span></div><div className="mini-pipe"><i className="a" /><i className="on" /><i /></div></>) },
   { t: "Работа", d: "Статусы и файлы по каждому разделу.", v: (<><div className="mini-pipe"><i className="on" /><i className="on" /><i className="a" /><i /></div><div className="ln m" /></>) },
   { t: "Экспертиза", d: "Замечания, правки и заключение.", v: (<><span className="stamp"><b>✓</b>заключение</span><div className="ln s" /></>) },
 ];
@@ -54,8 +76,8 @@ const TILES = [
   },
   {
     t: "Подбор исполнителей", go: "pick", cta: "Смотреть исполнителей", bg: "#E2E7F4",
-    d: "У каждого — СРО, страховка и история сделок. Индекс доверия показывает риск одной цифрой.",
-    v: (<><span className="chipmini">ИНДЕКС ДОВЕРИЯ</span><div className="row-mini"><span className="b">ТС</span>ООО «Техносфера»<span className="spacer" /><span className="num">91</span></div><div className="row-mini"><span className="b">ИГ</span>ИнжГрупп<span className="spacer" /><span className="num">84</span></div></>),
+    d: "У каждого — СРО, страховка и история сделок, проверенные платформой.",
+    v: (<><span className="chipmini">ПРОВЕРЕННЫЕ ИСПОЛНИТЕЛИ</span><div className="row-mini"><span className="b">ТС</span>ООО «Техносфера»<span className="spacer" /><span className="num">СРО</span></div><div className="row-mini"><span className="b">ИГ</span>ИнжГрупп<span className="spacer" /><span className="num">СРО</span></div></>),
   },
   {
     t: "Экспертиза и сдача", go: "exp", cta: "Посмотреть трекер", bg: "#F2E3D9",
@@ -67,7 +89,7 @@ const TILES = [
 const FAQ = [
   { q: "Сколько стоит для заказчика?", a: "Для заказчика платформа бесплатна: публикация заявок, отклики, сравнение и переписка не тарифицируются. Подписку оплачивают исполнители — за доступ к заявкам." },
   { q: "А если я не знаю, какие разделы мне нужны?", a: "Выберите тип объекта — состав разделов по ПП РФ №87 подставится автоматически. Лишнее можно убрать, а если сомневаетесь — оставьте как есть, исполнители уточнят в откликах." },
-  { q: "Кто проверяет исполнителей?", a: "Платформа сверяет ИНН и выписку ЕГРЮЛ, членство в СРО по реестру НОПРИЗ, полис страхования и историю сделок. Из этого собирается индекс доверия от 0 до 100." },
+  { q: "Кто проверяет исполнителей?", a: "Платформа сверяет ИНН и выписку ЕГРЮЛ, членство в СРО по реестру НОПРИЗ, полис страхования и историю сделок — до того, как исполнитель сможет откликнуться на заявку." },
   { q: "Можно ли вести в платформе экспертизу?", a: "Да. Подача, замечания, правки и заключение идут одним трекером со сроками по каждой итерации — видно, чей сейчас шаг." },
 ];
 
@@ -91,38 +113,38 @@ const REQS = [
   {
     id: 1, t: "Реконструкция котельной 4,2 МВт", city: "Нижний Новгород", type: "Промышленный объект",
     stage: "Проектная документация", secs: ["ОВ", "ЭОМ", "АР", "ТХ"], budget: "1 200 000 ₽", days: "45 дней",
-    resp: 3, tr: 87, publ: "11 августа", kind: "Проектирование", hot: true,
+    resp: 3, publ: "11 августа", kind: "Проектирование", hot: true,
     bids: [
-      { n: "ТС", name: "ООО «Техносфера»", note: "СРО · 14 лет · 62 проекта", price: "1 150 000 ₽", d: "42 дня", tr: 91, best: ["tr"] },
-      { n: "ПБ", name: "ПБ «Вектор»", note: "СРО · 9 лет · 38 проектов", price: "980 000 ₽", d: "50 дней", tr: 78, best: ["price"] },
-      { n: "ИГ", name: "ИнжГрупп", note: "СРО · 11 лет · 51 проект", price: "1 240 000 ₽", d: "38 дней", tr: 84, best: ["d"] },
+      { n: "ТС", name: "ООО «Техносфера»", note: "СРО · 14 лет · 62 проекта", price: "1 150 000 ₽", d: "42 дня", best: [] },
+      { n: "ПБ", name: "ПБ «Вектор»", note: "СРО · 9 лет · 38 проектов", price: "980 000 ₽", d: "50 дней", best: ["price"] },
+      { n: "ИГ", name: "ИнжГрупп", note: "СРО · 11 лет · 51 проект", price: "1 240 000 ₽", d: "38 дней", best: ["d"] },
     ],
   },
   {
     id: 2, t: "ЖК «Северный», корпус 3 — прохождение экспертизы", city: "Казань", type: "Жилой объект",
     stage: "Экспертиза · 2-я итерация", secs: ["АР", "КЖ", "ВК", "СС"], budget: "по итерациям", days: "до 20 авг",
-    resp: 2, tr: 92, publ: "10 августа", kind: "Экспертиза", warn: "2 замечания",
+    resp: 2, publ: "10 августа", kind: "Экспертиза", warn: "2 замечания",
     bids: [
-      { n: "ЭЦ", name: "ЭЦ «Проектстандарт»", note: "Аккредитация · 2 216 заключений", price: "310 000 ₽", d: "14 дней", tr: 94, best: ["tr", "d"] },
-      { n: "НГ", name: "НЭ «Гарант»", note: "Аккредитация · 1 480 заключений", price: "285 000 ₽", d: "18 дней", tr: 88, best: ["price"] },
+      { n: "ЭЦ", name: "ЭЦ «Проектстандарт»", note: "Аккредитация · 2 216 заключений", price: "310 000 ₽", d: "14 дней", best: ["d"] },
+      { n: "НГ", name: "НЭ «Гарант»", note: "Аккредитация · 1 480 заключений", price: "285 000 ₽", d: "18 дней", best: ["price"] },
     ],
   },
   {
     id: 3, t: "Обследование производственного корпуса, 8 400 м²", city: "Екатеринбург", type: "Обследование",
     stage: "Техническое заключение", secs: ["ТО", "КЖ"], budget: "640 000 ₽", days: "30 дней",
-    resp: 5, tr: 81, publ: "08 августа", kind: "Обследование",
+    resp: 5, publ: "08 августа", kind: "Обследование",
     bids: [
-      { n: "СП", name: "«СтройПроект-Э»", note: "Лаборатория · 22 года", price: "610 000 ₽", d: "26 дней", tr: 89, best: ["price", "tr", "d"] },
-      { n: "ГК", name: "ГК «Ресурс»", note: "СРО · 7 лет", price: "700 000 ₽", d: "34 дня", tr: 72, best: [] },
+      { n: "СП", name: "«СтройПроект-Э»", note: "Лаборатория · 22 года", price: "610 000 ₽", d: "26 дней", best: ["price", "d"] },
+      { n: "ГК", name: "ГК «Ресурс»", note: "СРО · 7 лет", price: "700 000 ₽", d: "34 дня", best: [] },
     ],
   },
   {
     id: 4, t: "Склад-холодильник 12 000 м² — КЖ, КМ, ТХ", city: "Краснодар", type: "Промышленный объект",
     stage: "Рабочая документация", secs: ["КЖ", "КМ", "ТХ", "ЭОМ", "АУПТ"], budget: "2 900 000 ₽", days: "90 дней",
-    resp: 7, tr: 76, publ: "05 августа", kind: "Проектирование",
+    resp: 7, publ: "05 августа", kind: "Проектирование",
     bids: [
-      { n: "МП", name: "«МегаПроект»", note: "СРО · 18 лет · 140 проектов", price: "2 750 000 ₽", d: "84 дня", tr: 90, best: ["price", "tr", "d"] },
-      { n: "АБ", name: "АБ «Форма»", note: "СРО · 6 лет · 24 проекта", price: "3 100 000 ₽", d: "96 дней", tr: 69, best: [] },
+      { n: "МП", name: "«МегаПроект»", note: "СРО · 18 лет · 140 проектов", price: "2 750 000 ₽", d: "84 дня", best: ["price", "d"] },
+      { n: "АБ", name: "АБ «Форма»", note: "СРО · 6 лет · 24 проекта", price: "3 100 000 ₽", d: "96 дней", best: [] },
     ],
   },
 ];
@@ -193,14 +215,13 @@ const WSTEPS = [
   { t: "Отклики", d: "Исполнители присылают предложения и условия.", c: (
     <><b className="wc__t">7 предложений</b><span className="wc__s">от 860 000 ₽</span>
     <div className="wc__list">
-      {[["Техносфера", "ТС", 91], ["ИнжГрупп", "ИГ", 84], ["ПроектСтрой", "ПС", 78]].map(([n, ab, v]) => (
-        <div key={n}>{n === "Техносфера" ? <span className="wc__logo wc__logo--s"><img src={IMG["tehnosfera-logo.jpg"]} alt="" /></span> : <Init n={ab} size={22} />}<span>{n}</span><em className="num">{v}</em></div>
+      {[["Техносфера", "ТС"], ["ИнжГрупп", "ИГ"], ["ПроектСтрой", "ПС"]].map(([n, ab]) => (
+        <div key={n}>{n === "Техносфера" ? <span className="wc__logo wc__logo--s"><img src={IMG["tehnosfera-logo.jpg"]} alt="" /></span> : <Init n={ab} size={22} />}<span>{n}</span><em>СРО</em></div>
       ))}
     </div>
     <div className="wc__link">Показать все отклики <Arr s={12} /></div></>) },
-  { t: "Выбор исполнителя", d: "Вы сравниваете индекс, цену и срок.", c: (
+  { t: "Выбор исполнителя", d: "Вы сравниваете цену, срок и опыт.", c: (
     <><div className="wc__co"><span className="wc__logo"><img src={IMG["tehnosfera-logo.jpg"]} alt="Техносфера" /></span><b>ООО «Техносфера»</b></div>
-    <div className="wc__kv"><span>Индекс доверия</span><b className="wc__big">91 <i>/ 100</i></b></div>
     <div className="wc__kv"><span>Предложение</span><b>1 150 000 ₽</b></div>
     <div className="wc__kv"><span>Срок</span><b>45 дней</b></div>
     <div className="wc__link">Профиль исполнителя <Arr s={12} /></div></>) },
@@ -267,11 +288,10 @@ function Home({ go }) {
               <span className="lbl">Исполнителю</span>
               <h3>Получать заказы без холодных звонков</h3>
               <div className="role__list">
-                {["Открытые заявки с подтверждённым заданием", "Индекс доверия вместо портфолио в почте", "Вся переписка и файлы по сделке в платформе", "Оплата по этапам, без авансов на словах"].map(x => <span className="role__li" key={x}>{x}</span>)}
+                {["Открытые заявки с подтверждённым заданием", "Проверенный профиль вместо портфолио в почте", "Вся переписка и файлы по сделке в платформе", "Оплата по этапам, без авансов на словах"].map(x => <span className="role__li" key={x}>{x}</span>)}
               </div>
               <div className="row g8" style={{ marginTop: 4, flexWrap: "wrap" }}>
                 <button className="btn btn-acid" onClick={() => go("reqs")}>Смотреть заявки</button>
-                <button className="btn btn-line" onClick={() => go("trust")}>Как работает индекс</button>
               </div>
             </div>
           </div>
@@ -417,7 +437,6 @@ function Home({ go }) {
               <p>Бюджет и сроки указаны до отклика, переписка и файлы — внутри сделки, оплата по этапам.</p>
               <div className="row g8" style={{ flexWrap: "wrap" }}>
                 <button className="btn btn-acid" onClick={() => go("reqs")}>Смотреть заявки</button>
-                <button className="btn btn-line" onClick={() => go("trust")}>Как это работает</button>
               </div>
             </div>
             <div className="bento__img">
@@ -457,7 +476,7 @@ function Home({ go }) {
 
 /* ---------------- заявки ---------------- */
 function Reqs({ go, pubs = [], flash, onFlashOff, openMine }) {
-  const [tab, setTab] = useState(pubs.length ? "Мои" : "Все");
+  const [tab, setTab] = useState(pubs.some(r => r.mine) ? "Мои" : "Все");
   const [on, setOn] = useState(["Проектирование"]);
   const toggle = v => setOn(p => p.includes(v) ? p.filter(x => x !== v) : [...p, v]);
   const all = [...pubs, ...REQS];
@@ -473,7 +492,6 @@ function Reqs({ go, pubs = [], flash, onFlashOff, openMine }) {
             <p>Задание, бюджет и срок указаны до отклика. Переписка, файлы и оплата по этапам — внутри сделки.</p>
             <div className="row g8" style={{ flexWrap: "wrap" }}>
               <button className="btn btn-acid btn-sm" onClick={() => go("new")}>Новая заявка</button>
-              <button className="btn btn-line btn-sm" onClick={() => go("trust")}>Индекс доверия</button>
             </div>
           </div>
           <div className="rhead__r">
@@ -505,13 +523,6 @@ function Reqs({ go, pubs = [], flash, onFlashOff, openMine }) {
               ))}
             </div>
           ))}
-          <div className="rail__g">
-            <span className="lbl">Индекс доверия</span>
-            <div className="row g8" style={{ height: 8, background: "var(--paper-2)", borderRadius: 99, position: "relative" }}>
-              <div style={{ position: "absolute", left: "35%", right: 0, top: 0, bottom: 0, background: "var(--ink)", borderRadius: 99 }} />
-            </div>
-            <div className="row" style={{ justifyContent: "space-between" }}><span className="lbl">от 70</span><span className="lbl">100</span></div>
-          </div>
           <button className="btn btn-line btn-sm">Сбросить фильтры</button>
         </aside>
 
@@ -523,9 +534,11 @@ function Reqs({ go, pubs = [], flash, onFlashOff, openMine }) {
             </div>
           </div>
 
+          {/* У чужих настоящих заявок (r.live) экрана детали в Б пока нет — клик
+              не ведёт на демо-карточку, чтобы не показывать чужие данные. */}
           <div style={{ display: "grid", gap: 14 }}>
             {list.map(r => (
-              <article className={"card rcard" + (r.mine ? " rcard--mine" : "")} key={r.id} onClick={() => r.mine ? (openMine && openMine(r)) : go(r.kind === "Экспертиза" ? "exp" : r.id === 1 ? "detail" : "order")}>
+              <article className={"card rcard" + (r.mine ? " rcard--mine" : "")} key={r.id} onClick={() => r.mine ? (openMine && openMine(r)) : r.live ? undefined : go(r.kind === "Экспертиза" ? "exp" : r.id === 1 ? "detail" : "order")}>
                 <div className="rcard__top">
                   <div style={{ minWidth: 0 }}>
                     <div className="row g8" style={{ marginBottom: 10, flexWrap: "wrap" }}>
@@ -545,8 +558,7 @@ function Reqs({ go, pubs = [], flash, onFlashOff, openMine }) {
                     </div>
                   </div>
                   <div style={{ textAlign: "right", flex: "0 0 auto" }}>
-                    <span className="trust"><span className="dot" style={{ background: r.tr >= 85 ? "var(--moss)" : r.tr >= 75 ? "var(--acid-d)" : "var(--clay)" }} />Индекс <b>{r.tr}</b></span>
-                    <div className="lbl" style={{ marginTop: 8 }}>Опубликовано {r.publ}</div>
+                    <div className="lbl">Опубликовано {r.publ}</div>
                   </div>
                 </div>
                 <div className="rcard__grid">
@@ -562,7 +574,7 @@ function Reqs({ go, pubs = [], flash, onFlashOff, openMine }) {
                     ) : <b style={{ color: "var(--ink-3)" }}>ждём</b>}
                   </div>
                   <div className="f" style={{ justifySelf: "end", alignSelf: "end" }}>
-                    <button className="btn btn-line btn-sm">{r.mine ? "Ход заявки" : "Смотреть отклики"} <Arr s={13} /></button>
+                    {(r.mine || !r.live) && <button className="btn btn-line btn-sm">{r.mine ? "Ход заявки" : "Смотреть отклики"} <Arr s={13} /></button>}
                   </div>
                 </div>
               </article>
@@ -577,25 +589,30 @@ function Reqs({ go, pubs = [], flash, onFlashOff, openMine }) {
 
 /* ---------------- shell ---------------- */
 function NewApp() {
+  const { user, orders } = useApp();
   const [scr, setScr] = useState("home");
   const [menu, setMenu] = useState(false);
-  const [pubs, setPubs] = useState([]);
   const [flash, setFlash] = useState(null);
   const [cur, setCur] = useState(null);
   const go = k => { setMenu(false); setScr(k); };
-  const publish = req => { setPubs(p => [req, ...p]); setFlash(req.t); setCur(req); setScr("reqs"); };
+  /* Реальные заявки из общего хранилища: опубликованные — всем, свои — в любом
+     статусе. Демо-витрина REQS остаётся ниже реальных. */
+  const liveCards = orders
+    .filter(o => o.status === "published" || (user && o.customerId === user.id))
+    .map(o => orderToCard(o, user?.id));
+  const publish = req => { setFlash(req.t); setCur(req); setScr("reqs"); };
   const openMine = req => { if (!req) return; setCur(req); setScr("track"); };
   const NAVS = [["home", "Главная"], ["reqs", "Заявки"], ["pick", "Исполнители"], ["cat", "Производители"]];
-  const MORE = [["exp", "Экспертиза", "2 замечания"], ["norm", "Нормативы", ""], ["msg", "Сообщения", "3"], ["an", "Аналитика рынка", ""], ["trust", "Доверие", "78"], ["price", "Тарифы", ""], ["set", "Настройки", ""]];
+  const MORE = [["exp", "Экспертиза", "2 замечания"], ["norm", "Нормативы", ""], ["msg", "Сообщения", "3"], ["an", "Аналитика рынка", ""], ["price", "Тарифы", ""], ["set", "Настройки", ""]];
   const SCR = {
     home: () => <Home go={go} />,
-    reqs: () => <Reqs go={go} pubs={pubs} flash={flash} onFlashOff={() => setFlash(null)} openMine={openMine} />,
+    reqs: () => <Reqs go={go} pubs={liveCards} flash={flash} onFlashOff={() => setFlash(null)} openMine={openMine} />,
     track: () => <SCREENS.ReqTrack go={go} req={cur} />,
     detail: () => <SCREENS.OrderDetail go={go} />, order: () => <SCREENS.OrderCard go={go} />, prof: () => <SCREENS.ProProfile go={go} />,
     pick: () => <SCREENS.Pick go={go} />, solo: () => <SCREENS.SoloProfile go={go} />, cat: () => <SCREENS.Cat />,
     new: () => <SCREENS.OrderNew go={go} onPublish={publish} />, exp: () => <SCREENS.Expertise go={go} />,
     norm: () => <SCREENS.Standards />, msg: () => <SCREENS.Messages />, an: () => <SCREENS.Analytics />,
-    trust: () => <SCREENS.Trust />, price: () => <SCREENS.Pricing />, set: () => <SCREENS.Settings />,
+    price: () => <SCREENS.Pricing />, set: () => <SCREENS.Settings />,
     ai: () => <SCREENS.AiPick />,
   };
   return (

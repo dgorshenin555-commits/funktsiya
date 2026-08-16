@@ -4,7 +4,14 @@
    Файл сгенерирован из выгрузки Cloud Design — правки вносить в источник. */
 import * as React from "react";
 import { SCREENS } from "./registry";
+import { useApp } from "@/lib/store";
+import { STAGE_P_CAPITAL, OBJECT_TYPE_LABELS, STAGE_LABELS } from "@/lib/constants";
 const { useState, useRef, useEffect } = React;
+
+/* Маппинг полей мастера Б → модель общего хранилища (label → код). */
+const TYPE_CODE = Object.fromEntries(Object.entries(OBJECT_TYPE_LABELS).map(([code, label]) => [label, code]));
+const STAGE_CODE = Object.fromEntries(Object.entries(STAGE_LABELS).map(([code, label]) => [label, code]));
+const SCALE_CODE = { "Один специалист": "single", "Команда": "team", "Организация": "org" };
 
 /* ---------- иконки ---------- */
 const S = (p, s = 16, extra = {}) => (
@@ -35,7 +42,7 @@ const Back = () => (<svg width="14" height="14" viewBox="0 0 16 16" fill="none" 
 
 /* ---------- данные: общий источник (request_form.jsx) ---------- */
 const RF = SCREENS.REQ_FORM;
-const { STEPS, STAGE_OPTS, ATTRACT, TYPES, SUBTYPES, ALL_SECTIONS, SECTION_NAMES, REC_SECTIONS, BENCH, DEFAULTS, fmtRub, sectPlural, exemptExpertise, filledCount, buildRequest } = RF;
+const { STEPS, STAGE_OPTS, ATTRACT, TYPES, SUBTYPES, ALL_SECTIONS, SECTION_NAMES, DEFAULTS, sectPlural, exemptExpertise, filledCount, buildRequest } = RF;
 
 /* ---------- календарь ---------- */
 const RU_MONTHS = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
@@ -143,6 +150,7 @@ function PrevRow({ icon, label, value, hot, children }) {
 
 /* ---------- мастер ---------- */
 function OrderNew({ go, onPublish }) {
+  const { user, addOrder } = useApp();
   const [step, setStep] = useState(0);
   const [type, setType] = useState("Коммерческая недвижимость");
   const [subtype, setSubtype] = useState("Офис");
@@ -159,21 +167,38 @@ function OrderNew({ go, onPublish }) {
   const toggle = s => setSel(p => p.includes(s) ? p.filter(x => x !== s) : [...p, s]);
 
   const filled = [type, region && stage && attract, sel.length, (byOffer || budget) && due ? 1 : (budget || due), files].filter(Boolean).length;
-  const rec = REC_SECTIONS[type] || [];
-  const missing = rec.filter(s => !sel.includes(s));
-  const applied = missing.length === 0 && rec.length > 0;
-  const [low, mid, high, cnt] = BENCH[type] || [1000000, 2000000, 4000000, 12];
-  const pct = Math.round(((mid - low) / (high - low)) * 100);
   const exempt = type === "Частное строительство";
 
-  /* выгрузка заявки в общий список: поля мастера → карточка заявки */
+  /* Публикация пишет заявку в общее хранилище платформы (то же, что у основного
+     дизайна): заявку видят исполнители в обеих версиях. Карточка req остаётся
+     для экрана «Ход заявки» (ReqTrack). */
   const stageName = (STAGE_OPTS.find(s => s[0] === stage) || [])[1] || stage;
   const publish = () => {
+    if (!user) {
+      // Без входа хранилище не знает автора заявки; вход общий с основным дизайном.
+      window.location.href = "/auth";
+      return;
+    }
+    const digits = String(budget).replace(/\D/g, "");
+    const specialists = [...new Set(sel.flatMap(code => (STAGE_P_CAPITAL.find(s => s.code === code) || {}).specialists || []))];
+    const order = addOrder({
+      title: title.trim() || (type + " · " + subtype),
+      description: (subtype && subtype !== "Другое" ? subtype + ". " : "") + note.trim(),
+      objectType: TYPE_CODE[type] || "commercial",
+      region: region || "Москва",
+      scale: SCALE_CODE[attract] || "team",
+      stage: STAGE_CODE[stage] || "P",
+      sections: sel,
+      specialists,
+      budget: byOffer || !digits ? "Ждём предложений" : Number(digits).toLocaleString("ru-RU") + " ₽",
+      deadline: due || "",
+      status: "published",
+    });
     const req = {
-      id: "draft-" + Date.now(), mine: true, t: title.trim() || (type + " · " + subtype),
+      id: order.id, mine: true, live: true, t: order.title,
       city: region || "Регион не указан", type: type + " · " + subtype, stage: stageName,
-      secs: sel, budget: byOffer || !budget ? "ждём предложений" : budget + " ₽",
-      days: due ? "до " + due : "по согласованию", resp: 0, tr: 78, publ: "только что",
+      secs: sel, budget: byOffer || !digits ? "ждём предложений" : Number(digits).toLocaleString("ru-RU") + " ₽",
+      days: due ? "до " + due : "по согласованию", resp: 0, publ: "только что",
       kind: "Проектирование", bids: [],
       attract, files, note: note.trim(), byOffer, subtype, objType: type,
     };
@@ -261,28 +286,11 @@ function OrderNew({ go, onPublish }) {
                 <label style={{ fontSize: 14, fontWeight: 500 }}>Разделы документации</label>
                 <span className="lbl">Выбрано {sel.length} из {ALL_SECTIONS.length}</span>
               </div>
-              <div className="asst">
-                <span className="asst__ic"><Icon name="spark" size={18} /></span>
-                <div>
-                  <span className="lbl">Помощник</span>
-                  <p>{applied
-                    ? <>Состав по типу «<b>{type}</b>» уже выбран — <b>{rec.length}</b> {sectPlural(rec.length)}. Уберите лишнее или добавьте свои.</>
-                    : <>Для типа «<b>{type}</b>» на стадии «<b>{stage}</b>» обычно нужны <b>{rec.length}</b> {sectPlural(rec.length)} по ПП РФ №87.{missing.length > 0 && <> Не хватает: {missing.map(s => <span key={s} className="code">{s}</span>)}</>}</>}</p>
-                  <div className="asst__a">
-                    <button type="button" className="btn btn-acid btn-sm" disabled={applied} style={{ opacity: applied ? .45 : 1 }} onClick={() => setSel([...new Set([...sel, ...rec])])}>
-                      <Icon name="check" size={13} />{applied ? "Состав применён" : "Применить рекомендуемый состав"}
-                    </button>
-                    <button type="button" className="btn btn-line btn-sm" onClick={() => setSel(rec)}>Только рекомендуемые</button>
-                    <span className="lbl">можно изменить вручную</span>
-                  </div>
-                </div>
-              </div>
               <div className="seclist">
                 {ALL_SECTIONS.map(s => (
                   <button key={s} type="button" className={"secitem" + (sel.includes(s) ? " on" : "")} onClick={() => toggle(s)}>
                     <span className="secitem__c">{s}</span>
                     <span className="secitem__n">{SECTION_NAMES[s] || "Раздел документации"}</span>
-                    {rec.includes(s) && <span className="secitem__r">рек.</span>}
                     <span className="secitem__k"><Icon name="check" size={12} /></span>
                   </button>
                 ))}
@@ -290,27 +298,6 @@ function OrderNew({ go, onPublish }) {
             </div>)}
 
             {step === 3 && (<div className="fade">
-              <div className="asst">
-                <span className="asst__ic"><Icon name="chart" size={18} /></span>
-                <div>
-                  <span className="lbl">Помощник · ориентир рынка</span>
-                  <p>Похожие заявки («<b>{type}</b>», стадия «<b>{stage}</b>») закрывались за <b>{fmtRub(low)}–{fmtRub(high)} ₽</b>. Медиана — <b>{fmtRub(mid)} ₽</b>.</p>
-                  <div className="bench">
-                    <div className="bench__s">
-                      <span className="bench__m" style={{ left: pct + "%" }} />
-                      <span className="bench__ml num" style={{ left: pct + "%" }}>медиана {fmtRub(mid)} ₽</span>
-                    </div>
-                    <div className="bench__e">
-                      <div><span className="lbl">дешевле</span><b className="num">{fmtRub(low)} ₽</b></div>
-                      <div style={{ textAlign: "right" }}><span className="lbl">дороже</span><b className="num">{fmtRub(high)} ₽</b></div>
-                    </div>
-                  </div>
-                  <div className="asst__a">
-                    <button type="button" className="btn btn-acid btn-sm" onClick={() => { setByOffer(false); setBudget(fmtRub(mid)); }}><Icon name="wallet" size={13} />Подставить медиану</button>
-                    <span className="lbl">по {cnt} похожим заявкам за 12 мес</span>
-                  </div>
-                </div>
-              </div>
               <div className="field">
                 <label>Бюджет, ₽</label>
                 <input className="inp num" placeholder="12 000 000" value={budget} disabled={byOffer} style={{ opacity: byOffer ? .5 : 1 }} onChange={e => setBudget(e.target.value)} />
@@ -395,7 +382,7 @@ function ReqTrack({ go, req }) {
     { s: "done", t: "Заявка собрана", w: "шаги 1–5", d: "Тип объекта, регион, стадия, " + req.secs.length + " " + sectPlural(req.secs.length) + ", бюджет и срок заполнены в мастере." },
     { s: "done", t: "Проверка состава", w: "автоматически", d: "Состав разделов сверен с ПП РФ №87 для «" + (req.objType || req.type) + "»." },
     { s: "now", t: "Опубликована в общем списке", w: req.publ, d: "Заявка видна исполнителям с СРО и подходящими разделами. Первые отклики обычно в течение 4 часов." },
-    { s: "next", t: "Сбор и сравнение откликов", w: "далее", d: "Цена, срок, индекс доверия и покрытие разделов — в одной таблице." },
+    { s: "next", t: "Сбор и сравнение откликов", w: "далее", d: "Цена, срок и покрытие разделов — в одной таблице." },
     { s: "next", t: "Выбор исполнителя и договор", w: "после выбора", d: "Договор, этапы и оплата ведутся внутри сделки." },
   ];
   const FACTS = [
@@ -454,8 +441,7 @@ function ReqTrack({ go, req }) {
             <div className="box" style={{ display: "grid", gap: 10 }}>
               <span className="lbl">Видимость</span>
               <h3 style={{ margin: 0 }}>{req.secs.length ? "По вашим разделам" : "Без разделов"}</h3>
-              <p>Заявка показывается исполнителям, у кого есть опыт по {req.secs.slice(0, 4).join(", ") || "выбранным разделам"} и индекс доверия от 70.</p>
-              <button className="btn btn-line btn-sm" onClick={() => go("trust")}>Как работает индекс</button>
+              <p>Заявка показывается исполнителям, у кого есть подтверждённый опыт по {req.secs.slice(0, 4).join(", ") || "выбранным разделам"}.</p>
             </div>
           </div>
         </div>

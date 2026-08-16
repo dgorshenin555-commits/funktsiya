@@ -158,7 +158,7 @@ function Expertise({ go }) {
             <div className="box" style={{ display: "grid", gap: 10 }}>
               <span className="lbl">Экспертная организация</span>
               <h3 style={{ margin: 0 }}>ЭЦ «Проектстандарт»</h3>
-              <p>Аккредитация · 2 216 заключений · индекс доверия 94.</p>
+              <p>Аккредитация · 2 216 заключений.</p>
               <button className="btn btn-line btn-sm" onClick={() => go("pick")}>Профиль организации</button>
             </div>
           </div>

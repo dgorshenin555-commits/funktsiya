@@ -11,29 +11,16 @@ const Arr = ({ s = 14 }) => (<svg width={s} height={s} viewBox="0 0 16 16" fill=
 const Search = ({ s = 15 }) => (<svg width={s} height={s} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><circle cx="7" cy="7" r="4.4" /><path d="M10.4 10.4L14 14" /></svg>);
 const Chk = ({ s = 11 }) => (<svg width={s} height={s} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M3 8.5l3.5 3.5L13 4.5" /></svg>);
 
-const Ring = ({ v }) => {
-  const c = v >= 85 ? "var(--moss)" : v >= 75 ? "var(--acid-d)" : "var(--clay)";
-  return (
-    <div className="ring">
-      <svg viewBox="0 0 44 44" width="54" height="54">
-        <circle cx="22" cy="22" r="19.5" fill="none" stroke="var(--paper-2)" strokeWidth="3" />
-        <circle cx="22" cy="22" r="19.5" fill="none" stroke={c} strokeWidth="3" strokeLinecap="round" strokeDasharray={`${v * 1.225} 200`} transform="rotate(-90 22 22)" />
-      </svg>
-      <b className="num">{v}</b>
-    </div>
-  );
-};
-
 /* ---------------- исполнители ---------------- */
 const PROS = [
-  { n: "ТС", name: "ООО «Техносфера»", city: "Нижний Новгород", dirs: ["Проектировщик", "Эксперт", "Чертёжник"], kind: "Проектная организация", tr: 91, yrs: 14, prj: 62, late: "0,8%", resp: "2 ч", secs: ["ОВ", "ВК", "ЭОМ", "ТХ"], v: ["СРО", "Страхование 30 млн", "Экспертиза 41", "Отзывы 28"], team: 34, top: true, note: "Инженерные разделы для промышленных объектов, котельные до 20 МВт, ИТП." },
-  { n: "АФ", name: "АБ «Форма»", city: "Москва", dirs: ["Проектировщик", "Чертёжник"], kind: "Архитектурное бюро", tr: 84, yrs: 11, prj: 51, late: "2,1%", resp: "5 ч", secs: ["АР", "КЖ", "ГП"], v: ["СРО", "Страхование 15 млн", "Отзывы 19"], team: 22, note: "Жилые комплексы и общественные здания, стадии П и Р, авторский надзор." },
-  { n: "ИГ", name: "ИнжГрупп", city: "Казань", dirs: ["Проектировщик", "Эксперт"], kind: "Проектная организация", tr: 88, yrs: 9, prj: 47, late: "1,2%", resp: "3 ч", secs: ["ЭОМ", "СС", "АУПТ", "АПС"], v: ["СРО", "Страхование 20 млн", "Экспертиза 26", "Отзывы 22"], team: 18, note: "Электрика и слаботочные системы, пожарная автоматика, диспетчеризация." },
-  { n: "СП", name: "«СтройПроект-Э»", city: "Екатеринбург", dirs: ["Обследователь", "Эксперт"], kind: "Обследование · лаборатория", tr: 89, yrs: 22, prj: 118, late: "1,0%", resp: "4 ч", secs: ["ТО", "КЖ", "КМ"], v: ["СРО", "Аттестация лаборатории", "Страхование 25 млн", "Отзывы 44"], team: 27, note: "Техническое обследование, поверочные расчёты, заключения о состоянии несущих конструкций." },
-  { n: "ПВ", name: "ПБ «Вектор»", city: "Самара", dirs: ["Проектировщик", "Чертёжник"], kind: "Проектная организация", tr: 78, yrs: 6, prj: 24, late: "4,6%", resp: "8 ч", secs: ["АР", "ОВ", "ВК"], v: ["СРО", "Отзывы 9"], team: 11, note: "Небольшое бюро, реконструкция и перепланировки, работа по фиксированной ставке." },
-  { n: "АК", name: "Антон Ковалёв", city: "Москва", dirs: ["Проектировщик"], kind: "Частный специалист · ГИП", solo: true, role: "ГИП · ОВ, ВК", form: "ИП", tr: 86, yrs: 16, prj: 38, late: "1,4%", resp: "3 ч", secs: ["ОВ", "ВК", "ИТП"], v: ["НРС · ГИП", "Диплом МГСУ, 2008", "ИП, договор через платформу", "Отзывы 17"], note: "Ведёт разделы ОВ и ВК как ГИП: котельные, ИТП, тепловые сети. Работает с проектными организациями на субподряде." },
-  { n: "ЕМ", name: "Елена Мартынова", city: "Санкт-Петербург", dirs: ["Проектировщик", "Чертёжник"], kind: "Частный специалист · архитектор", solo: true, role: "Архитектор · АР, ГП", form: "Самозанятая", tr: 81, yrs: 12, prj: 29, late: "2,3%", resp: "6 ч", secs: ["АР", "ГП"], v: ["НРС · архитектор", "Диплом СПбГАСУ, 2012", "Самозанятая, договор через платформу", "Отзывы 11"], note: "Планировки и фасады жилых и общественных зданий, стадия П, сопровождение до заключения." },
-  { n: "ДШ", name: "Дмитрий Шевцов", city: "Екатеринбург", dirs: ["Обследователь", "Проектировщик"], kind: "Частный специалист · расчётчик", solo: true, role: "Расчётчик · КЖ, КМ", form: "ИП", tr: 84, yrs: 10, prj: 44, late: "0,9%", resp: "4 ч", secs: ["КЖ", "КМ", "ТО"], v: ["НРС · конструктор", "Аттестация по расчётам", "ИП, договор через платформу", "Отзывы 14"], note: "Поверочные расчёты несущих конструкций, усиление, разделы КЖ и КМ по обследованию." },
+  { n: "ТС", name: "ООО «Техносфера»", city: "Нижний Новгород", dirs: ["Проектировщик", "Эксперт", "Чертёжник"], kind: "Проектная организация", yrs: 14, prj: 62, late: "0,8%", resp: "2 ч", secs: ["ОВ", "ВК", "ЭОМ", "ТХ"], v: ["СРО", "Страхование 30 млн", "Экспертиза 41", "Отзывы 28"], team: 34, top: true, note: "Инженерные разделы для промышленных объектов, котельные до 20 МВт, ИТП." },
+  { n: "АФ", name: "АБ «Форма»", city: "Москва", dirs: ["Проектировщик", "Чертёжник"], kind: "Архитектурное бюро", yrs: 11, prj: 51, late: "2,1%", resp: "5 ч", secs: ["АР", "КЖ", "ГП"], v: ["СРО", "Страхование 15 млн", "Отзывы 19"], team: 22, note: "Жилые комплексы и общественные здания, стадии П и Р, авторский надзор." },
+  { n: "ИГ", name: "ИнжГрупп", city: "Казань", dirs: ["Проектировщик", "Эксперт"], kind: "Проектная организация", yrs: 9, prj: 47, late: "1,2%", resp: "3 ч", secs: ["ЭОМ", "СС", "АУПТ", "АПС"], v: ["СРО", "Страхование 20 млн", "Экспертиза 26", "Отзывы 22"], team: 18, note: "Электрика и слаботочные системы, пожарная автоматика, диспетчеризация." },
+  { n: "СП", name: "«СтройПроект-Э»", city: "Екатеринбург", dirs: ["Обследователь", "Эксперт"], kind: "Обследование · лаборатория", yrs: 22, prj: 118, late: "1,0%", resp: "4 ч", secs: ["ТО", "КЖ", "КМ"], v: ["СРО", "Аттестация лаборатории", "Страхование 25 млн", "Отзывы 44"], team: 27, note: "Техническое обследование, поверочные расчёты, заключения о состоянии несущих конструкций." },
+  { n: "ПВ", name: "ПБ «Вектор»", city: "Самара", dirs: ["Проектировщик", "Чертёжник"], kind: "Проектная организация", yrs: 6, prj: 24, late: "4,6%", resp: "8 ч", secs: ["АР", "ОВ", "ВК"], v: ["СРО", "Отзывы 9"], team: 11, note: "Небольшое бюро, реконструкция и перепланировки, работа по фиксированной ставке." },
+  { n: "АК", name: "Антон Ковалёв", city: "Москва", dirs: ["Проектировщик"], kind: "Частный специалист · ГИП", solo: true, role: "ГИП · ОВ, ВК", form: "ИП", yrs: 16, prj: 38, late: "1,4%", resp: "3 ч", secs: ["ОВ", "ВК", "ИТП"], v: ["НРС · ГИП", "Диплом МГСУ, 2008", "ИП, договор через платформу", "Отзывы 17"], note: "Ведёт разделы ОВ и ВК как ГИП: котельные, ИТП, тепловые сети. Работает с проектными организациями на субподряде." },
+  { n: "ЕМ", name: "Елена Мартынова", city: "Санкт-Петербург", dirs: ["Проектировщик", "Чертёжник"], kind: "Частный специалист · архитектор", solo: true, role: "Архитектор · АР, ГП", form: "Самозанятая", yrs: 12, prj: 29, late: "2,3%", resp: "6 ч", secs: ["АР", "ГП"], v: ["НРС · архитектор", "Диплом СПбГАСУ, 2012", "Самозанятая, договор через платформу", "Отзывы 11"], note: "Планировки и фасады жилых и общественных зданий, стадия П, сопровождение до заключения." },
+  { n: "ДШ", name: "Дмитрий Шевцов", city: "Екатеринбург", dirs: ["Обследователь", "Проектировщик"], kind: "Частный специалист · расчётчик", solo: true, role: "Расчётчик · КЖ, КМ", form: "ИП", yrs: 10, prj: 44, late: "0,9%", resp: "4 ч", secs: ["КЖ", "КМ", "ТО"], v: ["НРС · конструктор", "Аттестация по расчётам", "ИП, договор через платформу", "Отзывы 14"], note: "Поверочные расчёты несущих конструкций, усиление, разделы КЖ и КМ по обследованию." },
 ];
 
 const PRO_F = {
@@ -76,7 +63,7 @@ function QuickPick({ pros, secMatch, onApply, onClose }) {
   React.useEffect(() => { setSecs(stageSecs); }, [stages.join(",")]);
   const pickedSecs = secs.length ? secs : stageSecs;
   const matchType = p => !types.length || types.some(t => t === "Частный специалист" ? p.solo : t === "Обследование" ? p.kind.includes("Обследование") : p.kind === t);
-  const result = pros.filter(p => matchType(p) && (!pickedSecs.length || pickedSecs.some(c => secMatch(c, p.secs)))).sort((a, b) => b.tr - a.tr);
+  const result = pros.filter(p => matchType(p) && (!pickedSecs.length || pickedSecs.some(c => secMatch(c, p.secs))));
   const proCount = code => pros.filter(p => matchType(p) && secMatch(code, p.secs)).length;
   const TITLES = { 1: "Кто нужен?", 2: "На какой стадии?", 3: "Какой раздел нужен?" };
   const HINTS = { 1: "можно выбрать несколько", 2: "разделы подставятся сами", 3: "оставьте только нужные разделы", 4: "фильтры применятся к списку" };
@@ -153,7 +140,6 @@ function QuickPick({ pros, secMatch, onApply, onClose }) {
                     <b>{p.name}</b>
                     <span>{p.kind} · {p.city} · {p.secs.join(", ")}</span>
                   </div>
-                  <span className="trust"><span className="dot" style={{ background: p.tr >= 85 ? "var(--moss)" : "var(--acid-d)" }} />{p.tr}</span>
                 </div>
               ))}
               {result.length > 4 && <span className="lbl">и ещё {result.length - 4} — в списке</span>}
@@ -175,7 +161,7 @@ function QuickPick({ pros, secMatch, onApply, onClose }) {
 
 function Pick({ go }) {
   const [on, setOn] = useState(["История сделок"]);
-  const [sort, setSort] = useState("Индекс");
+  const [sort, setSort] = useState("Опыт");
   const [who, setWho] = useState("Все");
   const [sel, setSel] = useState([]);
   const toggle = (v, set, arr) => set(arr.includes(v) ? arr.filter(x => x !== v) : [...arr, v]);
@@ -206,7 +192,7 @@ function Pick({ go }) {
     .filter(p => who === "Все" ? true : who === "Организации" ? !p.solo : p.solo)
     .filter(p => !secs.length || secs.some(c => secMatch(c, p.secs)))
     .filter(p => { const t = on.filter(v => QP_TYPES.some(q => q[0] === v)); return !t.length || t.some(v => v === "Частный специалист" ? p.solo : v === "Обследование" ? p.kind.includes("Обследование") : p.kind === v); })
-    .sort((a, b) => sort === "Индекс" ? b.tr - a.tr : sort === "Опыт" ? b.yrs - a.yrs : a.resp.localeCompare(b.resp));
+    .sort((a, b) => sort === "Опыт" ? b.yrs - a.yrs : a.resp.localeCompare(b.resp));
 
   return (
     <div className="scroll">
@@ -279,13 +265,6 @@ function Pick({ go }) {
               );
             })}
           </div>
-          <div className="rail__g">
-            <span className="lbl">Индекс доверия</span>
-            <div className="row g8" style={{ height: 8, background: "var(--paper-2)", borderRadius: 99, position: "relative" }}>
-              <div style={{ position: "absolute", left: "40%", right: 0, top: 0, bottom: 0, background: "var(--ink)", borderRadius: 99 }} />
-            </div>
-            <div className="row" style={{ justifyContent: "space-between" }}><span className="lbl">от 75</span><span className="lbl">100</span></div>
-          </div>
           <button className="btn btn-line btn-sm" onClick={resetAll}>Сбросить фильтры{fCount ? " · " + fCount : ""}</button>
         </aside>
 
@@ -294,7 +273,7 @@ function Pick({ go }) {
             <div><span className="lbl">Исполнители</span><h2 style={{ marginTop: 8 }}>Организации и частные специалисты</h2></div>
             <div className="row g12" style={{ flexWrap: "wrap" }}>
               <div className="seg">{["Все", "Организации", "Специалисты"].map(t => <button key={t} className={who === t ? "on" : ""} onClick={() => setWho(t)}>{t}</button>)}</div>
-              <div className="seg">{["Индекс", "Опыт", "Отклик"].map(t => <button key={t} className={sort === t ? "on" : ""} onClick={() => setSort(t)}>{t}</button>)}</div>
+              <div className="seg">{["Опыт", "Отклик"].map(t => <button key={t} className={sort === t ? "on" : ""} onClick={() => setSort(t)}>{t}</button>)}</div>
               <button className="btn btn-line btn-sm">Пригласить в заявку</button>
             </div>
           </div>
@@ -335,10 +314,6 @@ function Pick({ go }) {
                       {p.secs.map(s => <span className="tag" key={s}>{s}</span>)}
                     </div>
                   </div>
-                  <div className="pcard__tr">
-                    <Ring v={p.tr} />
-                    <span className="lbl" style={{ textAlign: "center" }}>индекс<br />доверия</span>
-                  </div>
                 </div>
 
                 <div className="vlist">
@@ -377,11 +352,11 @@ function Pick({ go }) {
 
 /* ---------------- производители ---------------- */
 const MAKERS = [
-  { name: "Ridan", logo: IMG["ridan.webp"], img: IMG["ridan-hex.jpg"], cat: "Теплоснабжение · ИТП", city: "Московская обл.", note: "Пластинчатые теплообменники, балансировочные клапаны, насосные группы для ИТП.", bim: true, items: 1840, secs: ["ОВ", "ТС"], lead: "от 5 дней", tr: 93, sup: "Подбор по ТЗ" },
-  { name: "Knauf", logo: null, img: IMG["knauf-aquapanel.jpg"], cat: "Ограждающие конструкции", city: "Красногорск", note: "Aquapanel и системы сухого строительства: типовые узлы, расчёт огнестойкости.", bim: true, items: 620, secs: ["АР", "КЖ"], lead: "склад", tr: 90, sup: "Узлы в DWG" },
-  { name: "Caparol", logo: IMG["caparol-logo.webp"], img: null, cat: "Фасады и отделка", city: "Москва", note: "Фасадные системы СФТК, колеровка, ведомости отделки под раздел АР.", bim: false, items: 410, secs: ["АР"], lead: "от 3 дней", tr: 86, sup: "Колер-подбор" },
-  { name: "Vandjord", logo: IMG["vandjord.jpg"], img: IMG["vandjord-station.jpg"], cat: "Водоотведение · ливнёвка", city: "Санкт-Петербург", note: "Очистные сооружения поверхностного стока, КНС, дренажные системы.", bim: true, items: 275, secs: ["ВК", "НВК"], lead: "от 14 дней", tr: 88, sup: "Гидравлический расчёт" },
-  { name: "Немен", logo: IMG["nemen.png"], img: null, cat: "Металлоконструкции", city: "Тула", note: "Балки, фермы, профнастил. Ведомости КМ и расчёт узлов под нагрузку.", bim: true, items: 130, secs: ["КМ"], lead: "от 20 дней", tr: 82, sup: "Расчёт узлов" },
+  { name: "Ridan", logo: IMG["ridan.webp"], img: IMG["ridan-hex.jpg"], cat: "Теплоснабжение · ИТП", city: "Московская обл.", note: "Пластинчатые теплообменники, балансировочные клапаны, насосные группы для ИТП.", bim: true, items: 1840, secs: ["ОВ", "ТС"], lead: "от 5 дней", sup: "Подбор по ТЗ" },
+  { name: "Knauf", logo: null, img: IMG["knauf-aquapanel.jpg"], cat: "Ограждающие конструкции", city: "Красногорск", note: "Aquapanel и системы сухого строительства: типовые узлы, расчёт огнестойкости.", bim: true, items: 620, secs: ["АР", "КЖ"], lead: "склад", sup: "Узлы в DWG" },
+  { name: "Caparol", logo: IMG["caparol-logo.webp"], img: null, cat: "Фасады и отделка", city: "Москва", note: "Фасадные системы СФТК, колеровка, ведомости отделки под раздел АР.", bim: false, items: 410, secs: ["АР"], lead: "от 3 дней", sup: "Колер-подбор" },
+  { name: "Vandjord", logo: IMG["vandjord.jpg"], img: IMG["vandjord-station.jpg"], cat: "Водоотведение · ливнёвка", city: "Санкт-Петербург", note: "Очистные сооружения поверхностного стока, КНС, дренажные системы.", bim: true, items: 275, secs: ["ВК", "НВК"], lead: "от 14 дней", sup: "Гидравлический расчёт" },
+  { name: "Немен", logo: IMG["nemen.png"], img: null, cat: "Металлоконструкции", city: "Тула", note: "Балки, фермы, профнастил. Ведомости КМ и расчёт узлов под нагрузку.", bim: true, items: 130, secs: ["КМ"], lead: "от 20 дней", sup: "Расчёт узлов" },
 ];
 
 const MAK_CATS = ["Все", "Теплоснабжение", "Водоотведение", "Ограждающие", "Фасады", "Металлоконструкции"];
@@ -422,7 +397,6 @@ function Cat() {
                     <span className="lbl">{m.cat}</span>
                   </div>
                   <span className="spacer" />
-                  <span className="trust"><span className="dot" style={{ background: m.tr >= 88 ? "var(--moss)" : "var(--acid-d)" }} />{m.tr}</span>
                 </div>
                 <p className="pcard__note">{m.note}</p>
                 <div className="rcard__meta" style={{ margin: "12px 0 0" }}>

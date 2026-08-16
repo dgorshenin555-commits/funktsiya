@@ -61,7 +61,7 @@ function SoloProfile({ go }) {
             </div>
           </div>
           <div className="shead__side">
-            <div className="shead__tr"><span className="lbl">Индекс доверия</span><b>86</b><span className="shead__trn">СРО не требуется: подтверждены НРС, диплом и статус ИП</span></div>
+            <div className="shead__tr"><span className="lbl">Проверен платформой</span><span className="shead__trn">СРО не требуется: подтверждены НРС, диплом и статус ИП</span></div>
             <div className="shead__kv"><span>Отклик</span><b>3 ч</b></div>
             <div className="shead__kv"><span>Проектов</span><b>38</b></div>
             <div className="shead__kv"><span>Срыв сроков</span><b style={{ color: "var(--moss)" }}>1,4%</b></div>
@@ -113,7 +113,6 @@ function SoloProfile({ go }) {
               <div className="box" style={{ display: "grid", gap: 10 }}>
                 <span className="lbl">Отличие от организации</span>
                 <p>У физлица нет СРО и страхования организации — ответственность обеспечивается договором через платформу и escrow по этапам. Для объектов, требующих СРО, специалист выступает субподрядчиком проектной организации.</p>
-                <button className="btn btn-line btn-sm" onClick={() => go("trust")}>Как считается индекс <Arr s={13} /></button>
               </div>
             </div>
           </div>

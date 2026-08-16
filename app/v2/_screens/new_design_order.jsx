@@ -5,6 +5,7 @@
 import * as React from "react";
 import { SCREENS } from "./registry";
 import { IMG } from "../_assets";
+import { STAGE_P_CAPITAL } from "@/lib/constants";
 const { useState, useEffect } = React;
 const Arr = ({ s = 14 }) => (<svg width={s} height={s} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M3 8h10M9 4l4 4-4 4" /></svg>);
 const Back = () => (<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M13 8H3M7 4L3 8l4 4" /></svg>);
@@ -30,16 +31,8 @@ const O = {
   clientCity: "Москва",
   hero: IMG["hero-commercial-2.png"],
 };
-const SECTION_NAMES = {
-  "АР": "Архитектурные решения",
-  "КР": "Конструктивные и объёмно-планировочные решения",
-  "ЭОМ": "Система электроснабжения",
-  "ВК": "Системы водоснабжения и водоотведения",
-  "ОВиК": "Отопление, вентиляция и кондиционирование",
-  "ПОС": "Проект организации строительства",
-  "ПБ": "Мероприятия по обеспечению пожарной безопасности",
-  "СМ": "Смета на строительство",
-};
+/* Справочник разделов стадии П — общий источник lib/constants.ts */
+const SECTION_NAMES = Object.fromEntries(STAGE_P_CAPITAL.map(s => [s.code, s.name]));
 const TEAM = ["Архитектор", "ГАП", "Конструктор", "Инженер-электрик", "Инженер-сантехник"];
 const TIMELINE = [
   { t: "Принята в работу", done: true },
@@ -48,10 +41,10 @@ const TIMELINE = [
   { t: "Закрыта", done: false },
 ];
 const RESPONSES = [
-  { ini: "КБ", name: "Бюро «Контур»", spec: "Полный комплект · BIM", rating: "4.9", reviews: 128, price: "11 800 000 ₽", priceNum: 11800000, term: "95 дней", termNum: 95, note: "Опыт по жилым комплексам бизнес-класса, своя BIM-команда.", trust: 90, level: "Надёжный", vf: true, codes: ["АР", "КР", "ЭОМ", "ВК", "ОВиК", "ПОС", "ПБ", "СМ"], projects: 86, availFree: true, avail: "Свободен", resp: "~40 мин", respNum: 40, escrow: true, bim: true },
-  { ini: "СА", name: "ИП Соколов А.В.", spec: "Конструктив · Архитектура", rating: "4.8", reviews: 64, price: "10 200 000 ₽", priceNum: 10200000, term: "110 дней", termNum: 110, note: "Готов начать сразу, среднее время ответа — 30 минут.", trust: 88, level: "Надёжный", vf: true, codes: ["КР", "АР"], projects: 198, availFree: true, avail: "Свободен", resp: "~30 мин", respNum: 30, escrow: true, bim: false },
-  { ini: "МП", name: "ПИ «Мостпроект»", spec: "Полный комплект · под ключ", rating: "5.0", reviews: 210, price: "12 600 000 ₽", priceNum: 12600000, term: "90 дней", termNum: 90, note: "Берёт проект под ключ с прохождением экспертизы.", trust: 93, level: "Эталон", vf: true, codes: ["АР", "КР", "ЭОМ", "ВК", "ОВиК", "ПОС", "ПБ", "СМ"], projects: 172, availFree: false, avail: "Занят до 15.07", resp: "~2 ч", respNum: 120, escrow: true, bim: true },
-  { ini: "СЛ", name: "Студия «Линия»", spec: "Архитектура · инж. сети", rating: "4.5", reviews: 22, price: "9 400 000 ₽", priceNum: 9400000, term: "130 дней", termNum: 130, note: "Бюджетный вариант, профиль на верификации.", trust: 79, level: "Проверяется", vf: false, codes: ["АР", "ЭОМ", "ВК", "ОВиК"], projects: 31, availFree: true, avail: "Свободен", resp: "~1 ч", respNum: 60, escrow: false, bim: true },
+  { ini: "КБ", name: "Бюро «Контур»", spec: "Полный комплект · BIM", rating: "4.9", reviews: 128, price: "11 800 000 ₽", priceNum: 11800000, term: "95 дней", termNum: 95, note: "Опыт по жилым комплексам бизнес-класса, своя BIM-команда.", level: "Надёжный", vf: true, codes: ["АР", "КР", "ЭОМ", "ВК", "ОВиК", "ПОС", "ПБ", "СМ"], projects: 86, availFree: true, avail: "Свободен", resp: "~40 мин", respNum: 40, escrow: true, bim: true },
+  { ini: "СА", name: "ИП Соколов А.В.", spec: "Конструктив · Архитектура", rating: "4.8", reviews: 64, price: "10 200 000 ₽", priceNum: 10200000, term: "110 дней", termNum: 110, note: "Готов начать сразу, среднее время ответа — 30 минут.", level: "Надёжный", vf: true, codes: ["КР", "АР"], projects: 198, availFree: true, avail: "Свободен", resp: "~30 мин", respNum: 30, escrow: true, bim: false },
+  { ini: "МП", name: "ПИ «Мостпроект»", spec: "Полный комплект · под ключ", rating: "5.0", reviews: 210, price: "12 600 000 ₽", priceNum: 12600000, term: "90 дней", termNum: 90, note: "Берёт проект под ключ с прохождением экспертизы.", level: "Эталон", vf: true, codes: ["АР", "КР", "ЭОМ", "ВК", "ОВиК", "ПОС", "ПБ", "СМ"], projects: 172, availFree: false, avail: "Занят до 15.07", resp: "~2 ч", respNum: 120, escrow: true, bim: true },
+  { ini: "СЛ", name: "Студия «Линия»", spec: "Архитектура · инж. сети", rating: "4.5", reviews: 22, price: "9 400 000 ₽", priceNum: 9400000, term: "130 дней", termNum: 130, note: "Бюджетный вариант, профиль на верификации.", level: "Проверяется", vf: false, codes: ["АР", "ЭОМ", "ВК", "ОВиК"], projects: 31, availFree: true, avail: "Свободен", resp: "~1 ч", respNum: 60, escrow: false, bim: true },
 ];
 const MESSAGES = [
   { me: false, who: "Бюро «Контур»", ini: "КБ", t: "Добрый день! Изучили ТЗ, готовы взяться. Уточните: подземная автостоянка на 2 уровня?", time: "10:24" },
@@ -82,7 +75,6 @@ function CompareOrder({ cands, order, onClose, go }) {
     return () => window.removeEventListener("keydown", k);
   }, [onClose]);
   const cov = c => order.filter(s => c.codes.includes(s)).length;
-  const maxTrust = Math.max(...cands.map(c => c.trust));
   const minPrice = Math.min(...cands.map(c => c.priceNum));
   const minTerm = Math.min(...cands.map(c => c.termNum));
   const maxCov = Math.max(...cands.map(cov));
@@ -92,7 +84,6 @@ function CompareOrder({ cands, order, onClose, go }) {
   const Yes = () => <span className="yn ok"><Chk s={12} /> Да</span>;
   const No = () => <span className="yn no"><X /> Нет</span>;
   const rows = [
-    { l: "Индекс доверия", h: "верификация + история", best: c => c.trust === maxTrust, r: c => <span className="num">{c.trust}<small>/100</small></span> },
     { l: "Стоимость", best: c => c.priceNum === minPrice, r: c => <span className="num">{mln(c.priceNum)}</span> },
     { l: "Срок", best: c => c.termNum === minTerm, r: c => <span className="num">{c.termNum}<small> дн.</small></span> },
     {
@@ -259,7 +250,7 @@ function OrderCard({ go }) {
                         <div className="row g10" style={{ alignItems: "center", flexWrap: "wrap" }}>
                           <b>{r.name}</b>
                           {r.vf
-                            ? <span className="trust" title={"Индекс доверия · " + r.level}><span className="dot" style={{ background: r.trust >= 90 ? "var(--moss)" : "var(--acid-d)" }} />{r.trust}</span>
+                            ? <span className="trust"><span className="dot" style={{ background: "var(--moss)" }} />{r.level}</span>
                             : <span className="trust pend"><span className="dot" style={{ background: "var(--clay)" }} />не подтв.</span>}
                           <span className="lbl">{r.spec}</span>
                         </div>
@@ -359,12 +350,6 @@ function OrderCard({ go }) {
               </div>
             </div>
 
-            <div className="box" style={{ display: "grid", gap: 10 }}>
-              <span className="lbl">Рыночный ориентир</span>
-              <h3 style={{ margin: 0 }}>{O.budget} — в рынке</h3>
-              <p>По похожим заявкам («{O.type}», стадия «{O.stage}») закрывались за 7–16 млн ₽. Медиана — 11,5 млн ₽ по 42 заявкам за 12 месяцев.</p>
-              <button className="btn btn-line btn-sm" onClick={() => go("trust")}>Как считается индекс доверия</button>
-            </div>
           </div>
         </div>
       </div>
