@@ -13,7 +13,7 @@ export function Avatar({ text, size = 36, style }) {
 }
 
 /* Превью объекта по типу. Картинки импортированы через Next → путь содержит
-   basePath (/projekt-market-) и хеш, поэтому работает и на GitHub Pages. */
+   basePath (/funktsiya) и хеш, поэтому работает и на GitHub Pages. */
 const TYPE_IMAGE = {
   private:    { src: heroPrivate,    tag: 'Частный дом' },
   commercial: { src: heroCommercial, tag: 'Коммерческий объект' },
