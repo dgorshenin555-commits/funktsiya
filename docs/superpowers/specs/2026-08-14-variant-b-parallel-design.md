@@ -127,8 +127,8 @@ CI не меняется: `npm run build` собирает всё дерево `
 
 | Вариант | Ссылка |
 |---|---|
-| А | `dgorshenin555-commits.github.io/projekt-market-` |
-| Б | `dgorshenin555-commits.github.io/projekt-market-/v2` |
+| А | `dgorshenin555-commits.github.io/funktsiya` |
+| Б | `dgorshenin555-commits.github.io/funktsiya/v2` |
 
 ## Модель совместной работы
 
