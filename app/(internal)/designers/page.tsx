@@ -12,7 +12,6 @@ import '../../_orders/orders.css';
 
 const SECTION_FILTERS = ['АР', 'КР', 'ЭОМ', 'ВК', 'ОВиК', 'ГС', 'ТХ', 'ПБ', 'СС', 'ЭС', 'РАСЧ', 'ЧЕРТ', '3DSK'];
 
-const SHORTLIST_KEY = (userId?: string) => `pm_shortlist_${userId ?? 'anon'}`;
 
 const AVATAR_COLORS = [
   ['#667eea', '#764ba2'],
@@ -307,23 +306,21 @@ function PersonCard({ designer, onSelect, onProfile, onShortlist, inShortlist, p
         </span>
       </div>
       <div className="row gap8">
-        <button
-          className="btn btn-ghost btn-sm grow"
-          onClick={(e) => {
-            e.stopPropagation();
-            onShortlist();
-          }}
-        >
-          {inShortlist ? (
-            <>
-              {projectMode ? 'В проекте' : 'В избранном'} <Icon name="check" size={14} />
-            </>
-          ) : (
-            <>
-              <Icon name="plus" size={14} /> {projectMode ? 'В проект' : 'В избранное'}
-            </>
-          )}
-        </button>
+        {projectMode && (
+          <button
+            className="btn btn-ghost btn-sm grow"
+            onClick={(e) => {
+              e.stopPropagation();
+              onShortlist();
+            }}
+          >
+            {inShortlist ? (
+              <>В проекте <Icon name="check" size={14} /></>
+            ) : (
+              <><Icon name="plus" size={14} /> В проект</>
+            )}
+          </button>
+        )}
         <button
           className="btn btn-primary btn-sm"
           onClick={(e) => {
@@ -341,8 +338,7 @@ function PersonCard({ designer, onSelect, onProfile, onShortlist, inShortlist, p
 function DesignersPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { notify, getOrderById, toggleInvitedDesigner, user } = useApp();
-  const shortlistKey = SHORTLIST_KEY(user?.id);
+  const { notify, getOrderById, toggleInvitedDesigner } = useApp();
   const [search, setSearch] = useState('');
   const [regionFilter, setRegionFilter] = useState('');
   const [sectionFilter, setSectionFilter] = useState('');
@@ -350,11 +346,13 @@ function DesignersPageContent() {
   const [hint, setHint] = useState<number | null>(null);
   const [sroOnly, setSroOnly] = useState(false);
   const [selectedDesigner, setSelectedDesigner] = useState<Designer | null>(MOCK_DESIGNERS[0]);
-  const [shortlist, setShortlist] = useState<string[]>([]);
 
-  // Режим приглашения в конкретную заявку (?orderId=…) vs внеконтекстное избранное.
+  // Режим приглашения в конкретную заявку (?orderId=…). Внеконтекстное «В избранное»
+  // убрано по решению заказчика от 16.08 (вопрос 3): один механизм — через заявку.
+  // Приглашение доступно только командным заявкам (вопрос 6).
   const orderIdParam = searchParams.get('orderId');
-  const projectOrder = orderIdParam ? getOrderById(orderIdParam) : null;
+  const orderFromParam = orderIdParam ? getOrderById(orderIdParam) : null;
+  const projectOrder = orderFromParam && orderFromParam.scale === 'team' ? orderFromParam : null;
 
   // Предзаполнение фильтра/поиска из ?spec=… (BUG-012).
   const specParam = searchParams.get('spec');
@@ -370,44 +368,21 @@ function DesignersPageContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [specParam]);
 
-  // Инициализация шортлиста из localStorage (BUG-016) — в useEffect, чтобы не было SSR-mismatch.
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      const saved = JSON.parse(localStorage.getItem(shortlistKey) || '[]');
-      if (Array.isArray(saved)) setShortlist(saved.filter((x): x is string => typeof x === 'string'));
-    } catch {}
-  }, [shortlistKey]);
-
-  const toggleShortlist = (id: string) => {
-    setShortlist((prev) => {
-      const inList = prev.includes(id);
-      const next = inList ? prev.filter((x) => x !== id) : [...prev, id];
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(shortlistKey, JSON.stringify(next));
-      }
-      notify(inList ? 'Убрано из избранного' : 'Добавлено в избранное');
-      return next;
-    });
-  };
-
-  // Признак «в проекте/в избранном» и переключатель — с учётом режима ?orderId.
   const inProject = (id: string) =>
-    projectOrder ? (projectOrder.invitedDesignerIds ?? []).includes(id) : shortlist.includes(id);
+    projectOrder ? (projectOrder.invitedDesignerIds ?? []).includes(id) : false;
 
   const handleProjectToggle = (designer: Designer) => {
-    if (projectOrder) {
-      const wasIn = (projectOrder.invitedDesignerIds ?? []).includes(designer.id);
-      toggleInvitedDesigner(projectOrder.id, designer.id);
-      notify(wasIn ? 'Убран из проекта' : `Приглашён в проект «${projectOrder.title}»`);
-    } else {
-      toggleShortlist(designer.id);
-    }
+    if (!projectOrder) return;
+    const wasIn = (projectOrder.invitedDesignerIds ?? []).includes(designer.id);
+    toggleInvitedDesigner(projectOrder.id, designer.id);
+    notify(wasIn ? 'Убран из проекта' : `Приглашён в проект «${projectOrder.title}»`);
   };
 
   const filtered = MOCK_DESIGNERS.filter((d) => {
     if (search && !d.name.toLowerCase().includes(search.toLowerCase())) return false;
-    if (regionFilter && d.city !== regionFilter) return false;
+    // Регион теперь отдельное поле анкеты по справочнику REGIONS (вопрос 7, 16.08);
+    // city оставлен как фолбэк для записей без региона.
+    if (regionFilter && (d.region ?? d.city) !== regionFilter) return false;
     if (sectionFilter && !d.sections.includes(sectionFilter)) return false;
     if (sroOnly && !d.sroNumber) return false;
     if (rateFilter && d.rating < rateFilter) return false;
@@ -589,19 +564,15 @@ function DesignersPageContent() {
                 </div>
               ))}
             </div>
-            {selectedDesigner && (
+            {selectedDesigner && projectOrder && (
               <button
                 className="btn btn-outline btn-sm btn-block mt16"
                 onClick={() => handleProjectToggle(selectedDesigner)}
               >
                 {inProject(selectedDesigner.id) ? (
-                  <>
-                    {projectOrder ? 'В проекте' : 'В избранном'} <Icon name="check" size={14} />
-                  </>
+                  <>В проекте <Icon name="check" size={14} /></>
                 ) : (
-                  <>
-                    {projectOrder ? 'Пригласить в проект' : 'Добавить в избранное'} <Icon name="arrowRight" size={14} />
-                  </>
+                  <>Пригласить в проект <Icon name="arrowRight" size={14} /></>
                 )}
               </button>
             )}

@@ -12,14 +12,16 @@ import { Icon } from '../_orders/icons';
 type NavItem = { key: string; label: string; href: string; icon: string; c: string; roles?: UserRole[] };
 
 // Сгруппированное dock-меню (Cloud Design «Функция (7)»). Цвет чипа задаётся через --c.
+// Решения заказчика от 16.08: «Обследование» и «Инженер-обследователь» из меню
+// уходят (обследователь — категория исполнителя, целевая модель — единый каталог
+// «Исполнители» как в варианте Б); роуты /expertise и /experts остаются доступными
+// по прямой ссылке до переноса функций в вариант Б.
 const GROUPS: { title: string; items: NavItem[] }[] = [
   { title: 'Работа', items: [
     { key: 'orders', label: 'Заявки', href: '/orders', icon: 'grid', c: 'var(--accent-2)', roles: ['designer'] },
-    { key: 'expertise', label: 'Обследование', href: '/expertise', icon: 'scan', c: 'var(--blue)', roles: ['customer', 'expert'] },
   ] },
   { title: 'Подбор', items: [
     { key: 'designers', label: 'Проектировщики', href: '/designers', icon: 'pen', c: 'var(--green)', roles: ['customer'] },
-    { key: 'experts', label: 'Инженер-обследователь', href: '/experts', icon: 'shield', c: 'var(--amber)', roles: ['customer'] },
     { key: 'manufacturers', label: 'Производители', href: '/manufacturers', icon: 'stamp', c: 'var(--pink)', roles: ['customer', 'designer', 'manufacturer'] },
   ] },
   { title: 'База знаний', items: [

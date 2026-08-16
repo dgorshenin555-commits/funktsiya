@@ -17,8 +17,10 @@ import '../../../_orders/orders.css';
 
 const TABS = ['Описание', 'Проектировщики', 'Коммуникации', 'Замечания', 'Файлы'];
 
-const TIMELINE_LABELS = ['Принята в работу', 'Назначены проектировщики', 'Передана на экспертизу', 'Закрыта'];
-const timelineDone = (o) => o.status === 'completed' ? 4 : (o.status === 'in_progress' || o.assignedDesignerId) ? 2 : 1;
+// Шаг «Передана на экспертизу» убран по решению заказчика от 16.08 (вопрос 5):
+// перехода в модели нет и экспертизу проводить некому.
+const TIMELINE_LABELS = ['Принята в работу', 'Назначены проектировщики', 'Закрыта'];
+const timelineDone = (o) => o.status === 'completed' ? 3 : (o.status === 'in_progress' || o.assignedDesignerId) ? 2 : 1;
 
 /* --- демо-данные для вкладок без бэкенда (прототип) --- */
 const DEMO_MESSAGES = [
@@ -329,7 +331,9 @@ function OrderDetailContent() {
             </div>
           )}
 
-          <div className="card">
+          {/* Команда — только для заявок типа «Команда» (решение 16.08, вопрос 6):
+              «один специалист» и «организация» идут по ветке одиночного исполнителя. */}
+          {o.scale === 'team' && <div className="card">
             <h3 className="section-title" style={{ fontSize: 16, marginBottom: 14 }}>Команда проекта</h3>
             {invitedTeam.length ? (
               <div className="col gap10">
@@ -358,7 +362,7 @@ function OrderDetailContent() {
                 <Icon name="plus" size={14} /> Пригласить
               </button>
             )}
-          </div>
+          </div>}
 
           <div className="card">
             <h3 className="section-title" style={{ fontSize: 16, marginBottom: 6 }}>Требуются специалисты</h3>
