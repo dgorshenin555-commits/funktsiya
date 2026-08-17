@@ -475,7 +475,7 @@ function Home({ go }) {
 }
 
 /* ---------------- заявки ---------------- */
-function Reqs({ go, pubs = [], flash, onFlashOff, openMine }) {
+function Reqs({ go, pubs = [], flash, onFlashOff, openMine, openLive }) {
   const [tab, setTab] = useState(pubs.some(r => r.mine) ? "Мои" : "Все");
   const [on, setOn] = useState(["Проектирование"]);
   const toggle = v => setOn(p => p.includes(v) ? p.filter(x => x !== v) : [...p, v]);
@@ -534,11 +534,11 @@ function Reqs({ go, pubs = [], flash, onFlashOff, openMine }) {
             </div>
           </div>
 
-          {/* У чужих настоящих заявок (r.live) экрана детали в Б пока нет — клик
-              не ведёт на демо-карточку, чтобы не показывать чужие данные. */}
+          {/* Настоящие заявки (r.live) открываются в LiveOrder на реальных данных;
+              демо-витрина ведёт на демо-экраны как раньше. */}
           <div style={{ display: "grid", gap: 14 }}>
             {list.map(r => (
-              <article className={"card rcard" + (r.mine ? " rcard--mine" : "")} key={r.id} onClick={() => r.mine ? (openMine && openMine(r)) : r.live ? undefined : go(r.kind === "Экспертиза" ? "exp" : r.id === 1 ? "detail" : "order")}>
+              <article className={"card rcard" + (r.mine ? " rcard--mine" : "")} key={r.id} onClick={() => r.live ? (openLive && openLive(r.id)) : go(r.kind === "Экспертиза" ? "exp" : r.id === 1 ? "detail" : "order")}>
                 <div className="rcard__top">
                   <div style={{ minWidth: 0 }}>
                     <div className="row g8" style={{ marginBottom: 10, flexWrap: "wrap" }}>
@@ -574,7 +574,7 @@ function Reqs({ go, pubs = [], flash, onFlashOff, openMine }) {
                     ) : <b style={{ color: "var(--ink-3)" }}>ждём</b>}
                   </div>
                   <div className="f" style={{ justifySelf: "end", alignSelf: "end" }}>
-                    {(r.mine || !r.live) && <button className="btn btn-line btn-sm">{r.mine ? "Ход заявки" : "Смотреть отклики"} <Arr s={13} /></button>}
+                    <button className="btn btn-line btn-sm">{r.mine ? "Отклики и выбор" : r.live ? "Открыть заявку" : "Смотреть отклики"} <Arr s={13} /></button>
                   </div>
                 </div>
               </article>
@@ -602,11 +602,15 @@ function NewApp() {
     .map(o => orderToCard(o, user?.id));
   const publish = req => { setFlash(req.t); setCur(req); setScr("reqs"); };
   const openMine = req => { if (!req) return; setCur(req); setScr("track"); };
+  /* Деталь настоящей заявки (LiveOrder) — по id из хранилища. */
+  const [liveId, setLiveId] = useState(null);
+  const openLive = id => { setLiveId(id); setScr("live"); };
   const NAVS = [["home", "Главная"], ["reqs", "Заявки"], ["pick", "Исполнители"], ["cat", "Производители"]];
   const MORE = [["exp", "Экспертиза", "2 замечания"], ["norm", "Нормативы", ""], ["msg", "Сообщения", "3"], ["an", "Аналитика рынка", ""], ["price", "Тарифы", ""], ["set", "Настройки", ""]];
   const SCR = {
     home: () => <Home go={go} />,
-    reqs: () => <Reqs go={go} pubs={liveCards} flash={flash} onFlashOff={() => setFlash(null)} openMine={openMine} />,
+    reqs: () => <Reqs go={go} pubs={liveCards} flash={flash} onFlashOff={() => setFlash(null)} openMine={openMine} openLive={openLive} />,
+    live: () => <SCREENS.LiveOrder go={go} orderId={liveId} />,
     track: () => <SCREENS.ReqTrack go={go} req={cur} />,
     detail: () => <SCREENS.OrderDetail go={go} />, order: () => <SCREENS.OrderCard go={go} />, prof: () => <SCREENS.ProProfile go={go} />,
     pick: () => <SCREENS.Pick go={go} />, solo: () => <SCREENS.SoloProfile go={go} />, cat: () => <SCREENS.Cat />,
