@@ -1,6 +1,12 @@
 // === Роли пользователей ===
 export type UserRole = 'customer' | 'designer' | 'expert' | 'manufacturer';
 
+// === Категории исполнителя (решение 16.08, вопрос 18) ===
+// Один человек может совмещать несколько категорий. role при этом остаётся
+// производной для совместимости: designer, если среди категорий есть
+// «Проектировщик», иначе expert.
+export type ExecutorCategory = 'designer' | 'surveyor' | 'calculator' | 'draftsman' | 'scan3d';
+
 // === Пользователь ===
 export interface User {
   id: string;
@@ -13,6 +19,10 @@ export interface User {
   phone?: string;
   avatar?: string;
   region?: string;
+  // Категории исполнителя; для категории «Проектировщик» дополнительно
+  // заполняются specializations (коды разделов) и stages (стадии).
+  executorCategories?: ExecutorCategory[];
+  stages?: DesignStage[];
   specializations?: string[];
   sroNumber?: string;
   description?: string;

@@ -1,4 +1,4 @@
-import { ObjectType, DesignStage, ProjectScale } from './types';
+import { ObjectType, DesignStage, ProjectScale, ExecutorCategory } from './types';
 
 // === Типы объектов ===
 // icon — ключ именованной SVG-иконки (_orders/icons), как в форме создания заявки.
@@ -19,6 +19,18 @@ export const REGIONS = [
   'Ростовская область', 'Челябинская область', 'Воронежская область',
   'Красноярский край', 'Пермский край', 'Другой регион',
 ];
+
+// === Категории исполнителя (вопрос 18) ===
+export const EXECUTOR_CATEGORIES: { value: ExecutorCategory; label: string; hint: string }[] = [
+  { value: 'designer', label: 'Проектировщик', hint: 'Разделы ПД и РД по выбранным направлениям' },
+  { value: 'surveyor', label: 'Обследователь', hint: 'Обследование зданий, обмеры, техсостояние' },
+  { value: 'calculator', label: 'Расчётчик', hint: 'Расчётно-конструкторские работы' },
+  { value: 'draftsman', label: 'Чертёжник', hint: 'Чертёжно-графические работы, 2D/BIM' },
+  { value: 'scan3d', label: '3D-сканирование', hint: 'Лазерное сканирование, облака точек' },
+];
+
+export const EXECUTOR_CATEGORY_LABELS: Record<ExecutorCategory, string> =
+  Object.fromEntries(EXECUTOR_CATEGORIES.map((c) => [c.value, c.label])) as Record<ExecutorCategory, string>;
 
 // === Стадия П — Объекты капстроительства ===
 export interface SectionInfo {

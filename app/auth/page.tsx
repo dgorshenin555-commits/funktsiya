@@ -4,17 +4,22 @@
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useApp } from '@/lib/store';
-import { UserRole } from '@/lib/types';
+import { UserRole, ExecutorCategory } from '@/lib/types';
+import { EXECUTOR_CATEGORIES, STAGE_P_CAPITAL, STAGE_LABELS } from '@/lib/constants';
 import Link from 'next/link';
 import { Icon } from '../_orders/icons';
 import '../_orders/orders.css';
 
-const ROLES: { value: UserRole; label: string; icon: string }[] = [
+/* Регистрация по модели «Исполнитель с категориями» (решение 16.08, вопрос 18):
+   роли — Заказчик / Исполнитель / Производитель; исполнитель отмечает категории
+   (можно несколько), для «Проектировщика» дополнительно разделы и стадии.
+   В хранилище role остаётся производной (designer|expert) для совместимости. */
+const ROLE_KINDS = [
   { value: 'customer', label: 'Заказчик', icon: 'building' },
-  { value: 'designer', label: 'Проектировщик', icon: 'pen' },
-  { value: 'expert', label: 'Обследователь', icon: 'shield' },
+  { value: 'executor', label: 'Исполнитель', icon: 'pen' },
   { value: 'manufacturer', label: 'Производитель', icon: 'factory' },
 ];
+const REG_STAGES = Object.entries(STAGE_LABELS); // [['sketch','Эскиз'], …]
 
 /* ───────────────────────── animated characters (ported from Cloud Design) ───────────────────────── */
 
@@ -139,7 +144,11 @@ export default function AuthPage() {
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [company, setCompany] = useState('');
-  const [role, setRole] = useState<UserRole>('customer');
+  const [roleKind, setRoleKind] = useState('customer');
+  const [cats, setCats] = useState<ExecutorCategory[]>([]);
+  const [secs, setSecs] = useState<string[]>([]);
+  const [stages, setStages] = useState<string[]>([]);
+  const toggleIn = (setter) => (v) => setter((p) => p.includes(v) ? p.filter((x) => x !== v) : [...p, v]);
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
@@ -214,7 +223,23 @@ export default function AuthPage() {
         setError('Введите ФИО или название компании.');
         return;
       }
-      const created = register({ email, name, role, company, phone: '', password });
+      const isExecutor = roleKind === 'executor';
+      if (isExecutor && cats.length === 0) {
+        setError('Отметьте хотя бы одну категорию исполнителя.');
+        return;
+      }
+      // role — производная от категорий (совместимость с ролевым кабинетом).
+      const role: UserRole = isExecutor
+        ? (cats.includes('designer') ? 'designer' : 'expert')
+        : (roleKind as UserRole);
+      const created = register({
+        email, name, role, company, phone: '', password,
+        ...(isExecutor ? {
+          executorCategories: cats,
+          specializations: cats.includes('designer') ? secs : undefined,
+          stages: cats.includes('designer') && stages.length ? stages : undefined,
+        } : {}),
+      });
       if (created) {
         setRecoveryCode(created);
       } else {
@@ -274,15 +299,15 @@ export default function AuthPage() {
                       <div className="field">
                         <label>Ваша роль</label>
                         <div className="role-selector" role="radiogroup" aria-label="Ваша роль">
-                          {ROLES.map((r) => (
+                          {ROLE_KINDS.map((r) => (
                             <div
                               key={r.value}
-                              className={`role-option ${role === r.value ? 'selected' : ''}`}
+                              className={`role-option ${roleKind === r.value ? 'selected' : ''}`}
                               role="radio"
-                              aria-checked={role === r.value}
+                              aria-checked={roleKind === r.value}
                               tabIndex={0}
-                              onClick={() => setRole(r.value)}
-                              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setRole(r.value); } }}
+                              onClick={() => setRoleKind(r.value)}
+                              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setRoleKind(r.value); } }}
                             >
                               <div className="role-option-icon"><Icon name={r.icon} size={22} /></div>
                               <div className="role-option-label">{r.label}</div>
@@ -290,6 +315,51 @@ export default function AuthPage() {
                           ))}
                         </div>
                       </div>
+                      {roleKind === 'executor' && (
+                        <>
+                          <div className="field">
+                            <label>Категории — можно несколько</label>
+                            <div className="chips">
+                              {EXECUTOR_CATEGORIES.map((c) => (
+                                <button type="button" key={c.value} title={c.hint}
+                                  className={'chip chip-toggle' + (cats.includes(c.value) ? ' is-sel' : '')}
+                                  onClick={() => toggleIn(setCats)(c.value)}>
+                                  {c.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                          {cats.includes('designer') && (
+                            <>
+                              <div className="field">
+                                <label>Разделы проектирования</label>
+                                <div className="chips">
+                                  {STAGE_P_CAPITAL.map((s) => (
+                                    <button type="button" key={s.code} title={s.name}
+                                      className={'chip chip-toggle' + (secs.includes(s.code) ? ' is-sel' : '')}
+                                      onClick={() => toggleIn(setSecs)(s.code)}>
+                                      {s.code}
+                                    </button>
+                                  ))}
+                                </div>
+                                <span style={{ fontSize: 11, color: 'var(--text-mute)', marginTop: 4, display: 'block' }}>По этим разделам вам будут рекомендоваться заявки.</span>
+                              </div>
+                              <div className="field">
+                                <label>Стадии</label>
+                                <div className="chips">
+                                  {REG_STAGES.map(([code, label]) => (
+                                    <button type="button" key={code}
+                                      className={'chip chip-toggle' + (stages.includes(code) ? ' is-sel' : '')}
+                                      onClick={() => toggleIn(setStages)(code)}>
+                                      {label}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            </>
+                          )}
+                        </>
+                      )}
                       <div className="field">
                         <label>ФИО / Название компании</label>
                         <input className="input" placeholder="Иванов Иван Иванович" value={name} onChange={(e) => setName(e.target.value)} required

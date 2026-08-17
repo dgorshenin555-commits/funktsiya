@@ -115,6 +115,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // для обратной совместимости такие пускаем по email.
     if (found.password && found.password !== password) return false;
     const { password: _pw, recoveryCode: _rc, ...safe } = found;
+    // Миграция аккаунтов, созданных до модели категорий (вопрос 18):
+    // категории исполнителя выводим из legacy-роли.
+    if (!safe.executorCategories && (safe.role === 'designer' || safe.role === 'expert')) {
+      safe.executorCategories = [safe.role === 'designer' ? 'designer' : 'surveyor'];
+    }
     setState((prev) => ({ ...prev, user: safe }));
     return true;
   }, []);
