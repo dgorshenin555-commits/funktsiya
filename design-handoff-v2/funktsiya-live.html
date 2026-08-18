@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Функция — новый дизайн, живая начинка</title>
+
+<!-- Копия «Функция (новый дизайн).html» с настоящим наполнением.
+     Отличий от исходного каркаса два:
+       1. первым грузится lib_bundle.jsx — данные и справочники из проекта;
+       2. экраны берутся из live/, куда выгружен код основного проекта.
+     Исходные файлы в корне не затронуты: можно сравнивать бок о бок. -->
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@300..700&family=Golos+Text:wght@400..700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="new_design.css" />
+<link rel="stylesheet" href="new_design_land.css" />
+<link rel="stylesheet" href="new_design_land2.css" />
+<link rel="stylesheet" href="new_design_land3.css" />
+<link rel="stylesheet" href="new_design_signup.css" />
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
+
+<!-- Начинка: данные, справочники и витрина вместо состояния.
+     Обязательно раньше экранов — они читают отсюда. -->
+<script type="text/babel" src="lib_bundle.jsx"></script>
+
+<!-- Данные формы заявки: мастер и каталоги читают их в момент загрузки,
+     поэтому этот модуль идёт перед остальными экранами. -->
+<script type="text/babel" src="live/request_form.jsx"></script>
+
+<script type="text/babel" src="live/new_design_pad.jsx"></script>
+<script type="text/babel" src="live/new_design_dirs.jsx"></script>
+<script type="text/babel" src="live/new_design_detail.jsx"></script>
+<script type="text/babel" src="live/new_design_extra.jsx"></script>
+<script type="text/babel" src="live/new_design_flow.jsx"></script>
+<script type="text/babel" src="live/new_design_more.jsx"></script>
+<script type="text/babel" src="live/new_design_scrub.jsx"></script>
+<script type="text/babel" src="live/new_design_solo.jsx"></script>
+<script type="text/babel" src="live/new_design_order.jsx"></script>
+<script type="text/babel" src="live/new_design_wizard.jsx"></script>
+<script type="text/babel" src="live/live_order.jsx"></script>
+<script type="text/babel" src="live/new_design_client.jsx"></script>
+<script type="text/babel" src="live/new_design_land.jsx"></script>
+<script type="text/babel" src="live/new_design_land2.jsx"></script>
+<script type="text/babel" src="live/new_design_land3.jsx"></script>
+<script type="text/babel" src="live/new_design_signup.jsx"></script>
+
+<!-- Оболочка последней: она собирает все экраны, зарегистрированные выше. -->
+<script type="text/babel" src="live/new_design.jsx"></script>
+
+<script type="text/babel">ReactDOM.createRoot(document.getElementById("root")).render(<window.NewApp />);</script>
+</body>
+</html>
