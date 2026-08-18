@@ -45,18 +45,15 @@
     {
       t: "Заявки на проектирование", go: "reqs", cta: "Смотреть заявки", bg: "#E9E6DC",
       d: "Опишите объект — разделы по ПП РФ №87 подставятся сами, останется выбрать срок и бюджет.",
-      v: (<><span className="chipmini">ПРОЕКТИРОВАНИЕ</span><div className="cardstub"><span className="t">Котельная 4,2 МВт</span><div className="row g8">{["ОВ", "ЭОМ", "АР"].map(s => <span className="tag" key={s} style={{ height: 20, fontSize: 11 }}>{s}</span>)}</div></div><div className="row-mini"><span className="b">3</span>отклика<span className="spacer" /><span className="num">45 дней</span></div></>),
-    },
+      v: (<><span className="chipmini">ПРОЕКТИРОВАНИЕ</span><div className="cardstub"><span className="t">Котельная 4,2 МВт</span><div className="row g8">{["ОВ", "ЭОМ", "АР"].map(s => <span className="tag" key={s} style={{ height: 20, fontSize: 11 }}>{s}</span>)}</div></div><div className="row-mini"><span className="b">3</span>отклика<span className="spacer" /><span className="num">45 дней</span></div></>) },
     {
       t: "Подбор исполнителей", go: "pick", cta: "Смотреть исполнителей", bg: "#E2E7F4",
       d: "У каждого — СРО, страховка и история сделок. Индекс доверия показывает риск одной цифрой.",
-      v: (<><span className="chipmini">ИНДЕКС ДОВЕРИЯ</span><div className="row-mini"><span className="b">ТС</span>ООО «Техносфера»<span className="spacer" /><span className="num">91</span></div><div className="row-mini"><span className="b">ИГ</span>ИнжГрупп<span className="spacer" /><span className="num">84</span></div></>),
-    },
+      v: (<><span className="chipmini">ИНДЕКС ДОВЕРИЯ</span><div className="row-mini"><span className="b">ТС</span>ООО «Техносфера»<span className="spacer" /><span className="num">91</span></div><div className="row-mini"><span className="b">ИГ</span>ИнжГрупп<span className="spacer" /><span className="num">84</span></div></>) },
     {
       t: "Экспертиза и сдача", go: "exp", cta: "Посмотреть трекер", bg: "#F2E3D9",
       d: "Видно, на каком шаге проект, что требует вашего ответа и сколько осталось до заключения.",
-      v: (<><span className="chipmini">2-Я ИТЕРАЦИЯ</span><div className="cardstub"><span className="t">Замечания эксперта — 2</span><div className="mini-pipe"><i className="on" /><i className="on" /><i className="a" /><i /><i /></div></div><span className="stamp"><b>✓</b>до 20 августа</span></>),
-    },
+      v: (<><span className="chipmini">2-Я ИТЕРАЦИЯ</span><div className="cardstub"><span className="t">Замечания эксперта — 2</span><div className="mini-pipe"><i className="on" /><i className="on" /><i className="a" /><i /><i /></div></div><span className="stamp"><b>✓</b>до 20 августа</span></>) },
   ];
 
   const FAQ = [
@@ -216,6 +213,59 @@
       <div className="wc__link">Скачать комплект <Arr s={12} /></div></>) },
   ];
 
+  /* планшет с видом платформы: наклон распрямляется при скролле (без библиотек, на rAF) */
+  function ScrollPad({ go }) {
+    const wrapRef = React.useRef(null);
+    const cardRef = React.useRef(null);
+    const headRef = React.useRef(null);
+    React.useEffect(() => {
+      const scroller = wrapRef.current && wrapRef.current.closest(".scroll");
+      if (!scroller) return;
+      let raf = 0;
+      const tick = () => {
+        raf = 0;
+        const el = wrapRef.current, card = cardRef.current, head = headRef.current;
+        if (!el || !card) return;
+        const r = el.getBoundingClientRect();
+        const vh = scroller.clientHeight || window.innerHeight;
+        /* 0 — блок только вошёл снизу, 1 — прошёл верх экрана */
+        const p = Math.max(0, Math.min(1, (vh - r.top) / (vh + r.height * .55)));
+        const e = p < .5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+        const mob = window.innerWidth <= 760;
+        card.style.transform = "rotateX(" + (17 * (1 - e)).toFixed(2) + "deg) scale(" + ((mob ? .94 : 1.02) - (mob ? -.04 : .02) * e).toFixed(3) + ")";
+        card.style.setProperty("--lift", (1 - e).toFixed(3));
+        if (head) head.style.transform = "translateY(" + (-44 * e).toFixed(1) + "px)";
+      };
+      const onScroll = () => { if (!raf) raf = requestAnimationFrame(tick); };
+      tick();
+      scroller.addEventListener("scroll", onScroll, { passive: true });
+      window.addEventListener("resize", onScroll);
+      return () => { scroller.removeEventListener("scroll", onScroll); window.removeEventListener("resize", onScroll); if (raf) cancelAnimationFrame(raf); };
+    }, []);
+
+    return (
+      <section className="pad" ref={wrapRef}>
+        <div className="pad__head" ref={headRef}>
+          <span className="lbl">Платформа целиком</span>
+          <h2>Вся стройка <em>на одном экране</em></h2>
+          <p>Заявки, отклики, разделы и экспертиза — в одном рабочем месте, с любого устройства.</p>
+        </div>
+        <div className="pad__stage">
+          <div className="pad__dev" ref={cardRef}>
+            <div className="pad__cam" />
+            <div className="pad__scr">
+              <window.PadUI />
+            </div>
+          </div>
+          <div className="pad__foot">
+            <span className="lbl">Один аккаунт · веб, планшет и телефон</span>
+            <button className="btn btn-line btn-sm" onClick={() => go("detail")}>Открыть заявку <Arr s={13} /></button>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   function Home({ go }) {
     const [open, setOpen] = useState(null);
     const [capOpen, setCapOpen] = useState(0);
@@ -272,6 +322,8 @@
             </div>
           </section>
         </div>
+
+        <div className="wrap"><ScrollPad go={go} /></div>
 
         <div className="ticker">
           {[0, 1].map(k => (

@@ -20,6 +20,7 @@ import './_screens/request_form';
 
 import './_screens/new_design';
 import './_screens/new_design_scrub';
+import './_screens/new_design_pad';
 import './_screens/new_design_detail';
 import './_screens/new_design_order';
 import './_screens/new_design_dirs';

@@ -33,6 +33,7 @@ MODULES = [
     "new_design_flow.jsx",
     "new_design_more.jsx",
     "new_design_order.jsx",
+    "new_design_pad.jsx",
     "new_design_scrub.jsx",
     "new_design_solo.jsx",
     "new_design_wizard.jsx",

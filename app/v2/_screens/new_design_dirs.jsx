@@ -35,10 +35,10 @@ const secMatch = (code, proSecs) => (SEC_ALIAS[code] || [code]).some(a => proSec
 
 /* направления работы — быстрый вход в фильтр списка исполнителей */
 const DIRS = [
-  ["Проектировщик", "разделы ПД и РД"],
-  ["Эксперт", "заключения и замечания"],
-  ["Чертёжник", "выпуск чертежей и BIM"],
-  ["Обследователь", "обмеры и техсостояние"],
+  ["Проектировщик", "Разделы ПД и РД под подпись ГИПа", "#C9F24A", "#14161A", ["Разделы по ПП №87", "Стадии П, ПД, РД", "Сопровождение экспертизы"], ["СРО", "ГИП", "BIM"]],
+  ["Эксперт", "Замечания и заключения по документации", "#2440E8", "#F1EFE9", ["Негос. и гос. экспертиза", "Аудит решений и смет", "Ответы на замечания"], ["Аттестат", "НРС", "Стаж 10+"]],
+  ["Чертёжник", "Выпуск чертежей и BIM-моделей", "#6E3AD6", "#F1EFE9", ["Оформление по ГОСТ", "Спецификации и ведомости", "Модели LOD 300–400"], ["AutoCAD", "Revit", "nanoCAD"]],
+  ["Обследователь", "Обмеры и оценка техсостояния объекта", "#DC5A2A", "#F1EFE9", ["Выезд и обмеры", "Поверочные расчёты", "Техническое заключение"], ["СП 13-102", "Лаборатория", "Лазерное СК"]],
 ];
 const dirOf = p => p.dirs || [];
 
@@ -183,6 +183,7 @@ function Pick({ go }) {
   const resetAll = () => { setOn([]); setStages([]); setSecs([]); setOpenSt([]); setWho("Все"); setDir(null); };
   const [quick, setQuick] = useState(false);
   const [dir, setDir] = useState(null);
+  const [dirHov, setDirHov] = useState(null);
   const applyQuick = ({ types, stages: st, secs: sc }) => {
     setOn(types); setStages(st); setSecs(sc); setOpenSt(st);
     setWho(types.length === 1 && types[0] === "Частный специалист" ? "Специалисты" : types.length && !types.includes("Частный специалист") ? "Организации" : "Все");
@@ -208,13 +209,28 @@ function Pick({ go }) {
           </div>
           <button className="btn btn-acid btn-lg" onClick={() => setQuick(true)}>Подобрать за 3 шага <Arr /></button>
           <div className="dirs">
-            <span className="lbl">Или сразу по направлению</span>
-            <div className="dirs__r">
-              {DIRS.map(([d, hint]) => (
-                <button key={d} className={"dirbtn" + (dir === d ? " on" : "")} onClick={() => setDir(dir === d ? null : d)}>
-                  <b>{d}</b><em>{hint}</em><span className="num">{PROS.filter(p => dirOf(p).includes(d)).length}</span>
-                </button>
-              ))}
+            <div className="dirs__h">
+              <span className="lbl">Или сразу по направлению</span>
+              {dir && <button className="dirs__x" onClick={() => setDir(null)}>сбросить направление ✕</button>}
+            </div>
+            <div className="dircards">
+              {DIRS.map(([d, hint, c, ct, does, tools]) => {
+                const cnt = PROS.filter(p => dirOf(p).includes(d)).length;
+                return (
+                  <button key={d} style={{ "--c": c, "--ct": ct }} className={"dircard" + (dir === d ? " on" : "")} onClick={() => setDir(dir === d ? null : d)}>
+                    <span className="dircard__top">
+                      <span className="dircard__t">{d}</span>
+                      <span className="dircard__n"><b className="num">{cnt}</b> в базе</span>
+                    </span>
+                    <span className="dircard__d">{hint}</span>
+                    <span className="dircard__list">{does.map(x => <i key={x}>{x}</i>)}</span>
+                    <span className="dircard__foot">
+                      <span className="dircard__tools">{tools.map(t => <em key={t}>{t}</em>)}</span>
+                      <span className="dircard__go"><Arr s={13} /></span>
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
