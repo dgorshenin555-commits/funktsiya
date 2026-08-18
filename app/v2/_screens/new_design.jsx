@@ -1,7 +1,9 @@
 "use client";
 
 /* Экран варианта Б. Источник: design-handoff-v2/new_design.jsx
-   Файл сгенерирован из выгрузки Cloud Design — правки вносить в источник. */
+   Первоначально импортирован скриптом tools/transform_jsx.py, но это был
+   разовый перенос: дальше экран дописывается прямо здесь. Повторно
+   генератор не гоняем — он вернёт файл к состоянию выгрузки. */
 import * as React from "react";
 import { SCREENS } from "./registry";
 import { IMG } from "../_assets";

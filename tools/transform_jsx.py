@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""Переводит модули варианта Б из браузерных IIFE в модули Next.js.
+"""РАЗОВЫЙ импорт варианта Б из Cloud Design в модули Next.js.
+
+ВНИМАНИЕ: скрипт перезаписывает app/v2/_screens/ целиком. Экраны там
+уже дописаны вручную, поэтому по умолчанию он откажется работать.
+Подробности и порядок действий при новой выгрузке — в tools/README.md.
+
+Переводит модули варианта Б из браузерных IIFE в модули Next.js.
 
 Что делает с каждым файлом:
   1. снимает обёртку (function () { ... })();
@@ -10,6 +16,7 @@
 """
 import os
 import re
+import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -79,7 +86,9 @@ def transform(path):
     uses_registry = "SCREENS." in body or "Object.assign(SCREENS," in body
 
     head = ['"use client";', "", "/* Экран варианта Б. Источник: design-handoff-v2/" + name,
-            "   Файл сгенерирован из выгрузки Cloud Design — правки вносить в источник. */",
+            "   Первоначально импортирован скриптом tools/transform_jsx.py, но это был",
+            "   разовый перенос: дальше экран дописывается прямо здесь. Повторно",
+            "   генератор не гоняем — он вернёт файл к состоянию выгрузки. */",
             'import * as React from "react";']
     if uses_registry:
         head.append('import { SCREENS } from "./registry";')
@@ -94,7 +103,36 @@ def transform(path):
     return result, stripped, n_assets
 
 
+def guard():
+    """Не даёт затереть код, который уже развивают вручную.
+
+    Скрипт был написан для разового переноса варианта Б из Cloud Design.
+    После переноса экраны дописывались руками: подключение к хранилищу,
+    работа с реальными заявками, модель исполнителя. Ничего из этого
+    генератор не знает и восстановить не сможет — повторный прогон
+    просто вернёт файлы к состоянию выгрузки.
+    """
+    if "--overwrite" in sys.argv:
+        return
+    existing = [n for n in MODULES
+                if os.path.exists(os.path.join(DST_DIR, n))]
+    if not existing:
+        return
+    print("Отказ: экраны варианта Б уже существуют и, скорее всего,")
+    print("дописаны вручную — генератор их перезапишет и правки пропадут.")
+    print(f"Найдено файлов: {len(existing)} в {DST_DIR}")
+    print()
+    print("Этот скрипт — разовый импорт, а не регулярная процедура.")
+    print("Новую выгрузку из Cloud Design переносите точечно: сравните")
+    print("её с design-handoff-v2/ и перенесите нужные куски руками.")
+    print()
+    print("Если действительно нужно перегенерировать с нуля, сначала")
+    print("убедитесь, что всё закоммичено, и запустите с --overwrite.")
+    sys.exit(1)
+
+
 def main():
+    guard()
     os.makedirs(DST_DIR, exist_ok=True)
     print(f"{'модуль':<26} {'IIFE снят':<10} {'картинок':<9} размер")
     for name in MODULES:
