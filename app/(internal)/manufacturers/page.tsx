@@ -14,7 +14,7 @@ import { Icon } from '../../_orders/icons';
 import '../../_orders/orders.css';
 
 /* Логотипы и галереи производителей — импортируем как модули из @/public,
-   чтобы пути были basePath-safe (на GitHub Pages basePath = '/projekt-market-'). */
+   чтобы пути были basePath-safe (на GitHub Pages basePath = '/funktsiya'). */
 import ridanLogo from '@/public/ridan.webp';
 import nemenLogo from '@/public/nemen.png';
 import vandjordLogo from '@/public/vandjord.jpg';
@@ -375,6 +375,10 @@ function ReqForm({ det, notify }) {
 function ProdCard({ m, onOpen }) {
   const det = m.det || {};
   const prodN = det.products ? det.products.length : 0;
+  // Значок индекса доверия (Cloud Design «Функция (9)»): верификация — по включению
+  // в реестр Минпромторга, индекс — из рейтинга и объёма BIM-библиотеки.
+  const vf = !!det.registry;
+  const trust = Math.min(99, Math.round(parseFloat(m.rating) * 18 + (det.bim ? Math.min(det.bim, 60) / 6 : 0)));
   return (
     <div className="card card-hover prod-card" onClick={() => onOpen(m)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') onOpen(m); }}>
       <div className="row gap12" style={{ marginBottom: 12 }}>
@@ -382,7 +386,12 @@ function ProdCard({ m, onOpen }) {
           ? <div className="manuf__logo manuf__logo--img"><img src={m.logo} alt={m.n} /></div>
           : <div className="manuf__logo" style={grad(m.g[0], m.g[1])}><Icon name="factory" size={20} /></div>}
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontWeight: 700, fontSize: 14.5 }}>{m.n}</div>
+          <div className="row gap8" style={{ alignItems: 'center' }}>
+            <span style={{ fontWeight: 700, fontSize: 14.5, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.n}</span>
+            {vf
+              ? <span className="tbadge" title={`Индекс доверия ${trust} · реестр Минпромторга`}><Icon name="checkCircle" size={12} />{trust}</span>
+              : <span className="tbadge tbadge--pending" title="Не в реестре"><Icon name="clock" size={11} />не подтв.</span>}
+          </div>
           <div className="row gap6 dim" style={{ fontSize: 12.5 }}><Icon name="star" size={12} style={{ color: 'var(--amber)' }} />{m.rating} · {m.geo}</div>
         </div>
       </div>

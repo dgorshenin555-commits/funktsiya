@@ -249,6 +249,10 @@ function ExpertHints({ active, onPick }) {
 /* Карточка эксперта — по принципу PersonCard проектировщиков. */
 function ExpertCard({ e, onOpen, onChoose }: { e: Expert; onOpen: () => void; onChoose: () => void }) {
   const featured = e.id === MOCK_EXPERTS[0].id;
+  // Значок индекса доверия (Cloud Design «Функция (9)»): верификация — по аккредитации,
+  // индекс — из рейтинга и числа выполненных проверок.
+  const vf = !!e.accreditation;
+  const trust = Math.min(99, Math.round(e.rating * 18 + Math.min(e.reportsCount || 0, 60) / 6));
   return (
     <div className={'card card-hover personcard' + (featured ? ' is-featured' : '')} onClick={onOpen}>
       <div className="row gap12" style={{ marginBottom: 14 }}>
@@ -256,6 +260,9 @@ function ExpertCard({ e, onOpen, onChoose }: { e: Expert; onOpen: () => void; on
         <div style={{ minWidth: 0 }}>
           <div className="row gap8 wrap" style={{ fontWeight: 700, fontSize: 15 }}>
             {e.name}
+            {vf
+              ? <span className="tbadge" title={`Индекс доверия ${trust}`}><Icon name="checkCircle" size={13} />{trust}</span>
+              : <span className="tbadge tbadge--pending" title="Профиль не подтверждён"><Icon name="clock" size={12} />не подтв.</span>}
             {featured && <span className="row" style={{ gap: 4, color: 'var(--green)', fontSize: 12.5, fontWeight: 600 }}><Icon name="check" size={14} />Лидер отрасли</span>}
           </div>
           <div className="chips" style={{ marginTop: 6 }}>{e.services.map((t) => <span key={t} className="chip">{t}</span>)}</div>
