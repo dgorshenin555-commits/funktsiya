@@ -11,7 +11,7 @@ import { Overview, Notifications, CustomerOrders, CustomerResponses, ExecRespons
 import { ProfileForm } from '../../_cabinet/ProfileForm';
 import '../../_orders/orders.css';
 
-const ROLE_LABEL = { customer: 'Заказчик', designer: 'Проектировщик', expert: 'Эксперт', manufacturer: 'Производитель' };
+const ROLE_LABEL = { customer: 'Заказчик', designer: 'Проектировщик', expert: 'Обследователь', manufacturer: 'Производитель' };
 
 function CabinetContent() {
   const { user, logout, getMyOrders } = useApp();

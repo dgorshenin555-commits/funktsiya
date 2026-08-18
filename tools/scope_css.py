@@ -1,8 +1,14 @@
 #!/usr/bin/env python3
-"""Загоняет все селекторы CSS варианта Б под корневой класс .nd,
+"""РАЗОВЫЙ импорт стилей варианта Б из Cloud Design.
+
+ВНИМАНИЕ: перезаписывает app/v2/v2.css целиком. По умолчанию
+откажется работать, если файл уже есть. См. tools/README.md.
+
+Загоняет все селекторы CSS варианта Б под корневой класс .nd,
 чтобы стили не пересекались со стилями варианта А."""
 import os
 import re
+import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -107,7 +113,23 @@ def transform(css):
     return "".join(out)
 
 
+def guard():
+    """Не даёт затереть стили, если их уже правили после импорта."""
+    if "--overwrite" in sys.argv:
+        return
+    if not os.path.exists(DST):
+        return
+    print("Отказ: app/v2/v2.css уже существует.")
+    print("Скрипт перезапишет его целиком, включая правки, внесённые")
+    print("после первичного импорта.")
+    print()
+    print("Новую выгрузку переносите точечно. Если нужна полная")
+    print("перегенерация — закоммитьте текущее и запустите с --overwrite.")
+    sys.exit(1)
+
+
 def main():
+    guard()
     css = open(SRC, encoding="utf-8").read()
     result = transform(css)
 

@@ -307,7 +307,7 @@ function PanelExpertise() {
   const remarks = [
     ['Раздел КР', 'Замечание №14 — расчёт нагрузок', 'Открыто', 'var(--amber)'],
     ['Раздел ОВ', 'Принято без замечаний', 'Принято', 'var(--green)'],
-    ['Раздел ЭОМ', 'Ответ направлен эксперту', 'На проверке', 'var(--blue)'],
+    ['Раздел ЭОМ', 'Ответ направлен обследователю', 'На проверке', 'var(--blue)'],
     ['Раздел АР', 'Замечание №7 — узлы примыкания', 'На доработке', 'var(--accent-2)'],
   ];
   return (
@@ -383,7 +383,7 @@ function PanelExperts() {
   const chips = ['Все', 'Аккредитованные', 'Госэкспертиза'];
   const people = [
     ['ГГ', 'Главгосэкспертиза', 'Госэкспертиза · Москва', '4.9', ['Аккред.']],
-    ['ЭП', '«ЭкспертПроект»', 'Негос. экспертиза · СПб', '4.8', ['Аккред.', 'BIM']],
+    ['ОП', '«ОбследПроект»', 'Негос. экспертиза · СПб', '4.8', ['Аккред.', 'BIM']],
     ['СА', '«СтройАудит»', 'Промбезопасность · Казань', '4.7', ['Аккред.']],
     ['ТН', '«ТехНадзор»', 'Строительный контроль · Уфа', '4.6', []],
   ];
@@ -735,8 +735,8 @@ function Features({ go }) {
     },
     {
       icon: 'scan', title: 'Обследование', tint: 'var(--blue)', cap: 'заключений за месяц', value: 342, change: 5.2, bench: 280, benchLabel: 'Среднее по рынку',
-      compTitle: 'Ведущие эксперты', comp: [['Главгосэкспертиза', 560, 'shield'], ['«ЭкспертПроект»', 410, 'cert'], ['«СтройАудит»', 295, 'award']],
-      action: { label: 'Эксперты', icon: 'shield', screen: 'experts' },
+      compTitle: 'Ведущие обследователи', comp: [['Главгосэкспертиза', 560, 'shield'], ['«ОбследПроект»', 410, 'cert'], ['«СтройАудит»', 295, 'award']],
+      action: { label: 'Обследователи', icon: 'shield', screen: 'experts' },
     },
     {
       icon: 'box', title: 'Решения и материалы', tint: 'var(--green)', cap: 'позиций в каталоге', value: 18420, change: 12.4, bench: 14000, benchLabel: 'Среднее по отрасли',
@@ -801,7 +801,7 @@ function VResponses() {
 }
 function VWorkspace() {
   const stages = ['Подана', 'Замечания', 'Доработка', 'Заключение']; const now = 1;
-  const remarks = [['Раздел КР', 'Замечание №14 — расчёт нагрузок', 'Открыто', 'var(--amber)'], ['Раздел ОВ', 'Принято без замечаний', 'Принято', 'var(--green)'], ['Раздел ЭОМ', 'Ответ направлен эксперту', 'На проверке', 'var(--blue)']];
+  const remarks = [['Раздел КР', 'Замечание №14 — расчёт нагрузок', 'Открыто', 'var(--amber)'], ['Раздел ОВ', 'Принято без замечаний', 'Принято', 'var(--green)'], ['Раздел ЭОМ', 'Ответ направлен обследователю', 'На проверке', 'var(--blue)']];
   return (
     <div className="tl-screen">
       <div className="tl-screen__top">
@@ -832,7 +832,7 @@ function VWorkspace() {
 function Steps() {
   const steps = [
     { n: 1, title: 'Опубликуйте заявку', desc: 'Опишите объект, стадию, разделы и бюджет. Загрузите исходные данные за пару минут.', V: VPublish },
-    { n: 2, title: 'Получите отклики', desc: 'Проектировщики и эксперты откликаются на заявку. Сравнивайте по рейтингу и опыту.', V: VResponses },
+    { n: 2, title: 'Получите отклики', desc: 'Проектировщики и обследователи откликаются на заявку. Сравнивайте по рейтингу и опыту.', V: VResponses },
     { n: 3, title: 'Выберите исполнителя', desc: 'Сравните отклики, выберите подрядчика и ведите проект в одном окне — экспертиза, замечания и нормативы вместе.', V: VWorkspace },
   ];
   const [active, setActive] = React.useState(0);
@@ -841,15 +841,19 @@ function Steps() {
   const [cur, setCur] = React.useState({ x: 90, y: 90 });
   const [hit, setHit] = React.useState(false);
   const stageRef = React.useRef(null);
+  const elapsedRef = React.useRef(0);
   const dur = 3600;
+  React.useEffect(() => { elapsedRef.current = 0; }, [active]);
   React.useEffect(() => {
     if (paused) return;
-    let raf; const t0 = performance.now();
+    let raf; const t0 = performance.now() - elapsedRef.current;
     const tick = (t) => {
-      const p = Math.min(100, ((t - t0) / dur) * 100);
+      const elapsed = t - t0;
+      elapsedRef.current = elapsed;
+      const p = Math.min(100, (elapsed / dur) * 100);
       setProgress(p);
       if (p < 100) raf = requestAnimationFrame(tick);
-      else { setProgress(0); setActive(a => (a + 1) % steps.length); }
+      else { setProgress(0); elapsedRef.current = 0; setActive(a => (a + 1) % steps.length); }
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
@@ -871,14 +875,6 @@ function Steps() {
       <p className="tl-eyebrow">Как это работает</p>
       <h2 className="tl-h2">Три шага для запуска в работу</h2>
       <div className="tl-cz" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
-        <div className="tl-cz__stage" ref={stageRef}>
-          <div className="tl-cz__slide" key={active}><Active /></div>
-          <span className="tl-cursor tl-cz-cursor" style={{ transform: `translate(${cur.x}px, ${cur.y}px)` }}>
-            <span className={'tl-cursor__in' + (hit ? ' is-click' : '')}>
-              <svg width="30" height="30" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3l14 7-6.2 1.8L10 19z" fill="var(--accent-2)" stroke="#fff" strokeWidth="1.5" strokeLinejoin="round" /></svg>
-            </span>
-          </span>
-        </div>
         <div className="tl-cz__btns">
           {steps.map((s, i) => (
             <button key={s.n} className={'tl-cz__btn' + (i === active ? ' is-active' : '')} onClick={() => { setActive(i); setProgress(0); }}>
@@ -888,6 +884,14 @@ function Steps() {
               <p>{s.desc}</p>
             </button>
           ))}
+        </div>
+        <div className="tl-cz__stage" ref={stageRef}>
+          <div className="tl-cz__slide" key={active}><Active /></div>
+          <span className="tl-cursor tl-cz-cursor" style={{ transform: `translate(${cur.x}px, ${cur.y}px)` }}>
+            <span className={'tl-cursor__in' + (hit ? ' is-click' : '')}>
+              <svg width="30" height="30" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3l14 7-6.2 1.8L10 19z" fill="var(--accent-2)" stroke="#fff" strokeWidth="1.5" strokeLinejoin="round" /></svg>
+            </span>
+          </span>
         </div>
       </div>
     </section>
@@ -939,9 +943,9 @@ function ObjectTypes({ go }) {
 function FAQ() {
   const [open, setOpen] = React.useState(0);
   const items = [
-    ['Сколько стоит размещение заявки?', 'Для заказчиков платформа бесплатна: публикуйте заявки, получайте отклики и выбирайте исполнителей без ограничений. Подписку оплачивают только исполнители — проектировщики, эксперты и производители.'],
-    ['Как проверяются исполнители?', 'Каждый проектировщик и эксперт проходит верификацию: проверяем членство в СРО, аккредитации и реквизиты организации. У верифицированных профилей есть отметка, а рейтинг формируется только из реальных завершённых проектов.'],
-    ['Как проходит экспертиза на платформе?', 'Загружаете разделы проекта, эксперт выдаёт замечания в трекере — вы отвечаете на них итерациями прямо в системе. Вся переписка, версии файлов и статусы замечаний сохраняются в одном месте до выдачи заключения.'],
+    ['Сколько стоит размещение заявки?', 'Для заказчиков платформа бесплатна: публикуйте заявки, получайте отклики и выбирайте исполнителей без ограничений. Подписку оплачивают только исполнители — проектировщики, обследователи и производители.'],
+    ['Как проверяются исполнители?', 'Каждый проектировщик и обследователь проходит верификацию: проверяем членство в СРО, аккредитации и реквизиты организации. У верифицированных профилей есть отметка, а рейтинг формируется только из реальных завершённых проектов.'],
+    ['Как проходит экспертиза на платформе?', 'Загружаете разделы проекта, обследователь выдаёт замечания в трекере — вы отвечаете на них итерациями прямо в системе. Вся переписка, версии файлов и статусы замечаний сохраняются в одном месте до выдачи заключения.'],
     ['Можно ли работать командой?', 'Да. На тарифах для организаций доступен командный доступ: распределяйте разделы между специалистами, следите за статусами и ведите несколько проектов параллельно.'],
     ['Как происходит оплата работ?', 'Договор и расчёты вы заключаете напрямую с исполнителем — платформа не берёт комиссию с суммы договора. Мы фиксируем этапы и документы, чтобы обе стороны были защищены.'],
     ['Что с нормативной базой?', 'В системе встроенный каталог ГОСТ, СП и ТУ с привязкой к разделам проекта. Замечания экспертизы ссылаются на конкретные пункты нормативов — ничего не нужно искать вручную.'],
@@ -1066,10 +1070,10 @@ function Pricing({ go }) {
   const [annual, setAnnual] = React.useState(false);
   const plans = [
     { role: 'Заказчик', icon: 'building', tint: 'var(--green)', tagline: 'Публикуйте проекты и находите команду', free: true, cta: 'Начать бесплатно',
-      features: ['Публикация заявок без ограничений', 'Поиск проектировщиков и экспертов', 'Базовый чат и обмен файлами', 'Сравнение откликов по заявке'] },
+      features: ['Публикация заявок без ограничений', 'Поиск проектировщиков и обследователей', 'Базовый чат и обмен файлами', 'Сравнение откликов по заявке'] },
     { role: 'Проектировщик', icon: 'compass', tint: 'var(--accent-2)', tagline: 'Получайте заказы и растите репутацию', monthly: 1990, yearly: 1590, pop: true, cta: 'Подключить тариф',
       features: ['Отклики на заявки без лимита', 'Верифицированный профиль и СРО', 'Рейтинг и портфолио проектов', 'Доступ к биржам экспертизы', 'Приоритет в выдаче подбора'] },
-    { role: 'Эксперт', icon: 'shield', tint: 'var(--blue)', tagline: 'Проверяйте проекты и выдавайте заключения', monthly: 3490, yearly: 2790, cta: 'Подключить тариф',
+    { role: 'Обследователь', icon: 'shield', tint: 'var(--blue)', tagline: 'Проверяйте проекты и выдавайте заключения', monthly: 3490, yearly: 2790, cta: 'Подключить тариф',
       features: ['Биржа экспертизы проектов', 'Трекер замечаний и итераций', 'Электронная выдача заключений', 'Аккредитация и верификация', 'Командная работа над проверкой'] },
     { role: 'Производитель', icon: 'box', tint: 'var(--pink)', tagline: 'Продвигайте решения в подборе', monthly: 4990, yearly: 3990, cta: 'Связаться с нами',
       features: ['Каталог решений с BIM-моделями', 'Нормативная привязка узлов', 'Продвижение в подборе решений', 'Аналитика спроса и заявок', 'Интеграции и доступ к API'] },
@@ -1078,7 +1082,7 @@ function Pricing({ go }) {
     <section className="tl-section" id="pricing">
       <p className="tl-eyebrow">Тарифы</p>
       <h2 className="tl-h2">Свой тариф для каждого участника</h2>
-      <p className="tl-lead">Заказчики публикуют заявки бесплатно. Проектировщики, эксперты и производители подключают подписку под свою роль.</p>
+      <p className="tl-lead">Заказчики публикуют заявки бесплатно. Проектировщики, обследователи и производители подключают подписку под свою роль.</p>
       <div className="tl-billtoggle">
         <button className={!annual ? 'is-active' : ''} onClick={() => setAnnual(false)}>Помесячно</button>
         <button className={annual ? 'is-active' : ''} onClick={() => setAnnual(true)}>За год <span className="tl-bt-save">−20%</span></button>
@@ -1260,7 +1264,7 @@ const ROUTE_MAP = {
   auth: '/auth', 'order-new': '/orders/new', landing: '/', dashboard: '/dashboard',
   designers: '/designers', experts: '/experts', manufacturers: '/manufacturers',
   expertise: '/expertise', standards: '/standards', chat: '/chat',
-  analytics: '/analytics', settings: '/settings', orders: '/orders', pricing: '/auth',
+  analytics: '/analytics', settings: '/settings', orders: '/orders', pricing: '/pricing',
 };
 
 export default function Page() {

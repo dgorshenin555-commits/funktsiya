@@ -490,7 +490,7 @@ export default function NewOrderPage() {
             </div>
             <div className="field">
               <label>Файлы проекта</label>
-              <button type="button" className="dropzone" style={{ width: '100%', cursor: 'pointer' }} onClick={() => { setFiles((f) => f + 1); notify('Загрузка файлов — в разработке'); }}><Icon name="paperclip" size={26} /><div>Перетащите файлы DWG, IFC, PDF или нажмите для выбора</div></button>
+              <button type="button" className="dropzone" style={{ width: '100%', cursor: 'pointer' }} onClick={() => { setFiles((f) => f + 1); notify('Загрузка файлов — в разработке'); }}><Icon name="paperclip" size={26} /><div>Перетащите файлы или нажмите для выбора</div></button>
               {files > 0 && <div className="muted" style={{ fontSize: 13.5 }}>Прикреплено файлов: {files}</div>}
             </div>
           </div>}

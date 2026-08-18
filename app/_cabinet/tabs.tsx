@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useApp } from '@/lib/store';
 import { ORDER_STATUS_MAP } from '@/lib/constants';
 import { Icon } from '../_orders/icons';
+import { plural } from '../_orders/shared';
 import { roleGroup, ORDER_BUCKET, EXP_BUCKET } from './cabinet-data';
 
 function Kpi({ icon, num, label }) {
@@ -162,7 +163,7 @@ export function CustomerOrders() {
                     <span className="badge" style={{ flex: 'none', color: st.color, background: `${st.color}16` }}>{st.label}</span>
                   </div>
                   <div className="row between gap16 wrap">
-                    <span className="row gap6 dim" style={{ fontSize: 13 }}><Icon name="comment" size={14} /> {o.responsesCount} откликов</span>
+                    <span className="row gap6 dim" style={{ fontSize: 13 }}><Icon name="comment" size={14} /> {o.responsesCount} {plural(o.responsesCount, ['отклик', 'отклика', 'откликов'])}</span>
                     <span className="price row gap6"><Icon name="wallet" size={16} style={{ color: 'var(--accent-2)' }} /> {o.budget}</span>
                   </div>
                 </div>
@@ -197,7 +198,11 @@ export function CustomerResponses() {
                 </div>
                 <p className="muted" style={{ margin: '0 0 12px', fontSize: 13.5, lineHeight: 1.5 }}>{r.message}</p>
                 <div className="row gap8">
-                  <button className="btn btn-primary btn-sm" onClick={() => { selectExecutor(order.id, r.designerId, r.designerName); notify('Исполнитель выбран'); }}>Выбрать</button>
+                  {order.assignedDesignerId === r.designerId
+                    ? <button className="btn btn-sm" disabled style={{ opacity: 0.75, background: 'var(--accent-soft)', color: 'var(--green)' }}><Icon name="check" size={14} /> Выбран</button>
+                    : !order.assignedDesignerId
+                      ? <button className="btn btn-primary btn-sm" onClick={() => { selectExecutor(order.id, r.designerId, r.designerName); notify(`Исполнитель выбран: ${r.designerName}`); }}>Выбрать</button>
+                      : null}
                 </div>
               </div>
             ))}

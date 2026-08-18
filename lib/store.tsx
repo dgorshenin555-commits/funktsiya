@@ -8,19 +8,22 @@ interface AppState {
   user: User | null;
   orders: Order[];
   responses: OrderResponse[];
-  favoriteStandards: string[];
+  favoriteStandardsByUser: Record<string, string[]>;
 }
 
 interface AppContextType extends AppState {
   hydrated: boolean;
   login: (email: string, password: string) => boolean;
-  register: (user: Omit<User, 'id' | 'createdAt'>) => boolean;
+  // Возвращает код восстановления при успехе (показывается пользователю один раз), false — при отказе.
+  register: (user: Omit<User, 'id' | 'createdAt'>) => string | false;
+  resetPasswordByCode: (email: string, code: string, newPassword: string) => boolean;
   logout: () => void;
   updateUser: (patch: Partial<Omit<User, 'id' | 'createdAt'>>) => void;
   addOrder: (order: Omit<Order, 'id' | 'createdAt' | 'responsesCount' | 'customerId' | 'customerName'>) => Order;
   addResponse: (response: Omit<OrderResponse, 'id' | 'createdAt' | 'designerId' | 'designerName' | 'designerCompany'>) => boolean;
   hasResponded: (orderId: string) => boolean;
   selectExecutor: (orderId: string, designerId: string, designerName: string) => void;
+  toggleInvitedDesigner: (orderId: string, designerId: string) => void;
   getOrderById: (id: string) => Order | undefined;
   getResponsesForOrder: (orderId: string) => OrderResponse[];
   getMyOrders: () => Order[];
@@ -42,10 +45,27 @@ function generateId() {
   return Math.random().toString(36).substring(2, 9) + Date.now().toString(36);
 }
 
+// Код восстановления пароля вида XXXX-XXXX. Алфавит без похожих символов (I, O, 0, 1).
+const RECOVERY_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+function generateRecoveryCode() {
+  let out = '';
+  for (let i = 0; i < 8; i++) {
+    if (i === 4) out += '-';
+    out += RECOVERY_ALPHABET[Math.floor(Math.random() * RECOVERY_ALPHABET.length)];
+  }
+  return out;
+}
+
+// Сравнение кодов без учёта регистра, дефисов и пробелов.
+function normalizeRecoveryCode(code: string) {
+  return (code || '').replace(/[\s-]/g, '').toUpperCase();
+}
+
 const DEFAULT_FAVORITES = MOCK_STANDARDS.filter((s) => s.isFeatured).map((s) => s.code);
 
 function loadState(): AppState {
-  if (typeof window === 'undefined') return { user: null, orders: MOCK_ORDERS, responses: MOCK_RESPONSES, favoriteStandards: DEFAULT_FAVORITES };
+  if (typeof window === 'undefined') return { user: null, orders: MOCK_ORDERS, responses: MOCK_RESPONSES, favoriteStandardsByUser: {} };
   try {
     const saved = localStorage.getItem('pm_state');
     if (saved) {
@@ -54,11 +74,11 @@ function loadState(): AppState {
         user: parsed.user || null,
         orders: parsed.orders?.length ? parsed.orders : MOCK_ORDERS,
         responses: parsed.responses?.length ? parsed.responses : MOCK_RESPONSES,
-        favoriteStandards: Array.isArray(parsed.favoriteStandards) ? parsed.favoriteStandards : DEFAULT_FAVORITES,
+        favoriteStandardsByUser: parsed.favoriteStandardsByUser && typeof parsed.favoriteStandardsByUser === 'object' ? parsed.favoriteStandardsByUser : {},
       };
     }
   } catch {}
-  return { user: null, orders: MOCK_ORDERS, responses: MOCK_RESPONSES, favoriteStandards: DEFAULT_FAVORITES };
+  return { user: null, orders: MOCK_ORDERS, responses: MOCK_RESPONSES, favoriteStandardsByUser: {} };
 }
 
 function saveState(state: AppState) {
@@ -67,7 +87,7 @@ function saveState(state: AppState) {
 }
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = useState<AppState>({ user: null, orders: MOCK_ORDERS, responses: MOCK_RESPONSES, favoriteStandards: DEFAULT_FAVORITES });
+  const [state, setState] = useState<AppState>({ user: null, orders: MOCK_ORDERS, responses: MOCK_RESPONSES, favoriteStandardsByUser: {} });
   const [mounted, setMounted] = useState(false);
   const [notice, setNotice] = useState<{ id: number; message: string } | null>(null);
   const noticeCounter = useRef(0);
@@ -94,7 +114,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // Проверяем пароль. У старых аккаунтов пароль мог не сохраниться —
     // для обратной совместимости такие пускаем по email.
     if (found.password && found.password !== password) return false;
-    setState((prev) => ({ ...prev, user: found }));
+    const { password: _pw, recoveryCode: _rc, ...safe } = found;
+    // Миграция аккаунтов, созданных до модели категорий (вопрос 18):
+    // категории исполнителя выводим из legacy-роли.
+    if (!safe.executorCategories && (safe.role === 'designer' || safe.role === 'expert')) {
+      safe.executorCategories = [safe.role === 'designer' ? 'designer' : 'surveyor'];
+    }
+    setState((prev) => ({ ...prev, user: safe }));
     return true;
   }, []);
 
@@ -106,14 +132,36 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (users.some((u) => u.email.trim().toLowerCase() === email)) {
       return false;
     }
+    const name = (userData.name || '').trim();
+    if (!name) return false;
+    const recoveryCode = generateRecoveryCode();
     const newUser: User = {
       ...userData,
+      email,
+      name,
+      company: userData.company?.trim(),
+      recoveryCode,
       id: generateId(),
       createdAt: new Date().toISOString(),
     };
     users.push(newUser);
     localStorage.setItem('pm_users', JSON.stringify(users));
-    setState((prev) => ({ ...prev, user: newUser }));
+    const { password: _pw, recoveryCode: _rc, ...safe } = newUser;
+    setState((prev) => ({ ...prev, user: safe }));
+    return recoveryCode;
+  }, []);
+
+  // Сброс пароля по коду восстановления. Пользователь не в сессии — правим только pm_users.
+  const resetPasswordByCode = useCallback((email: string, code: string, newPassword: string) => {
+    if (typeof window === 'undefined') return false;
+    const users = JSON.parse(localStorage.getItem('pm_users') || '[]') as User[];
+    const idx = users.findIndex((u) => u.email.trim().toLowerCase() === email.trim().toLowerCase());
+    if (idx < 0) return false;
+    const stored = users[idx].recoveryCode;
+    if (!stored) return false;
+    if (normalizeRecoveryCode(stored) !== normalizeRecoveryCode(code)) return false;
+    users[idx] = { ...users[idx], password: newPassword };
+    localStorage.setItem('pm_users', JSON.stringify(users));
     return true;
   }, []);
 
@@ -129,7 +177,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const users = JSON.parse(localStorage.getItem('pm_users') || '[]') as User[];
         const idx = users.findIndex((u) => u.id === updated.id);
         if (idx >= 0) {
-          users[idx] = updated;
+          users[idx] = { ...users[idx], ...patch };
         } else {
           users.push(updated);
         }
@@ -166,15 +214,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       designerCompany: state.user?.company,
       createdAt: new Date().toISOString(),
     };
-    setState((prev) => ({
-      ...prev,
-      responses: [newResponse, ...prev.responses],
-      orders: prev.orders.map((o) =>
-        o.id === responseData.orderId
-          ? { ...o, responsesCount: o.responsesCount + 1 }
-          : o
-      ),
-    }));
+    setState((prev) => {
+      // Повторная проверка внутри апдейтера — защита от гонки при двойном клике.
+      if (prev.responses.some((r) => r.orderId === responseData.orderId && r.designerId === me)) {
+        return prev;
+      }
+      return {
+        ...prev,
+        responses: [newResponse, ...prev.responses],
+        orders: prev.orders.map((o) =>
+          o.id === responseData.orderId
+            ? { ...o, responsesCount: o.responsesCount + 1 }
+            : o
+        ),
+      };
+    });
     return true;
   }, [state.user, state.responses]);
 
@@ -195,6 +249,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }));
   }, []);
 
+  // Приглашение проектировщика в «Команду проекта» заявки (I15).
+  const toggleInvitedDesigner = useCallback((orderId: string, designerId: string) => {
+    setState((prev) => ({
+      ...prev,
+      orders: prev.orders.map((o) => {
+        if (o.id !== orderId) return o;
+        const invited = o.invitedDesignerIds ?? [];
+        return {
+          ...o,
+          invitedDesignerIds: invited.includes(designerId)
+            ? invited.filter((x) => x !== designerId)
+            : [...invited, designerId],
+        };
+      }),
+    }));
+  }, []);
+
   const getOrderById = useCallback((id: string) => {
     return state.orders.find((o) => o.id === id);
   }, [state.orders]);
@@ -212,17 +283,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [state.responses, state.user]);
 
   const toggleFavoriteStandard = useCallback((code: string) => {
-    setState((prev) => ({
-      ...prev,
-      favoriteStandards: prev.favoriteStandards.includes(code)
-        ? prev.favoriteStandards.filter((c) => c !== code)
-        : [...prev.favoriteStandards, code],
-    }));
+    setState((prev) => {
+      const key = prev.user?.id ?? 'anon';
+      const current = prev.favoriteStandardsByUser[key] ?? DEFAULT_FAVORITES;
+      const updated = current.includes(code) ? current.filter((c) => c !== code) : [...current, code];
+      return { ...prev, favoriteStandardsByUser: { ...prev.favoriteStandardsByUser, [key]: updated } };
+    });
   }, []);
 
+  const favoriteStandards = state.favoriteStandardsByUser[state.user?.id ?? 'anon'] ?? DEFAULT_FAVORITES;
+
   const getFavoriteStandards = useCallback(
-    () => MOCK_STANDARDS.filter((s) => state.favoriteStandards.includes(s.code)),
-    [state.favoriteStandards]
+    () => MOCK_STANDARDS.filter((s) => favoriteStandards.includes(s.code)),
+    [favoriteStandards]
   );
 
   // Сторона обследователя: мок представляет «текущего» эксперта прототипа.
@@ -257,9 +330,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     <AppContext.Provider
       value={{
         ...state,
+        favoriteStandards,
         hydrated: mounted,
-        login, register, logout, updateUser,
-        addOrder, addResponse, hasResponded, selectExecutor,
+        login, register, resetPasswordByCode, logout, updateUser,
+        addOrder, addResponse, hasResponded, selectExecutor, toggleInvitedDesigner,
         getOrderById, getResponsesForOrder,
         getMyOrders, getMyResponses,
         toggleFavoriteStandard, getFavoriteStandards, getMyExpertiseResponses, getMyExpertiseProjects, getRecommendedOrders, getRecommendedExpertise,

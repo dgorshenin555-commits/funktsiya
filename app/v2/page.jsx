@@ -26,6 +26,7 @@ import './_screens/new_design_dirs';
 import './_screens/new_design_solo';
 import './_screens/new_design_flow';
 import './_screens/new_design_wizard';
+import './_screens/live_order';
 import './_screens/new_design_more';
 import './_screens/new_design_extra';
 

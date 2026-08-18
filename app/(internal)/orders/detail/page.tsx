@@ -10,14 +10,17 @@ import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useApp } from '@/lib/store';
 import { Icon } from '../../../_orders/icons';
-import { Avatar, StatusBadge, typeImage, typeLabel, formatDeadline, formatMoney } from '../../../_orders/shared';
+import { Avatar, StatusBadge, typeImage, typeLabel, formatDeadline, formatMoney, plural } from '../../../_orders/shared';
 import { STAGE_LABELS, SCALE_LABELS } from '@/lib/constants';
+import { MOCK_DESIGNERS } from '@/lib/mock-data';
 import '../../../_orders/orders.css';
 
 const TABS = ['Описание', 'Проектировщики', 'Коммуникации', 'Замечания', 'Файлы'];
 
-const TIMELINE_LABELS = ['Принята в работу', 'Назначены проектировщики', 'Передана на экспертизу', 'Закрыта'];
-const timelineDone = (o) => o.status === 'completed' ? 4 : (o.status === 'in_progress' || o.assignedDesignerId) ? 2 : 1;
+// Шаг «Передана на экспертизу» убран по решению заказчика от 16.08 (вопрос 5):
+// перехода в модели нет и экспертизу проводить некому.
+const TIMELINE_LABELS = ['Принята в работу', 'Назначены проектировщики', 'Закрыта'];
+const timelineDone = (o) => o.status === 'completed' ? 3 : (o.status === 'in_progress' || o.assignedDesignerId) ? 2 : 1;
 
 /* --- демо-данные для вкладок без бэкенда (прототип) --- */
 const DEMO_MESSAGES = [
@@ -174,13 +177,15 @@ function CompareOverlay({ models, onClose, onChoose, onProfile }) {
 function OrderDetailContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { getOrderById, getResponsesForOrder, user, addResponse, hasResponded, selectExecutor, notify } = useApp();
+  const { getOrderById, getResponsesForOrder, user, addResponse, hasResponded, selectExecutor, toggleInvitedDesigner, notify } = useApp();
   const [tab, setTab] = useState('Описание');
   const [responseText, setResponseText] = useState('');
   const [propBudget, setPropBudget] = useState('');
-  const [selected, setSelected] = useState([]);        // id откликов для сравнения (до 4)
+  const [propDeadline, setPropDeadline] = useState('');
+  const [selected, setSelected] = useState<string[]>([]);   // id откликов для сравнения (до 4)
   const [compareOpen, setCompareOpen] = useState(false);
-  const toggleSel = (id) => setSelected((p) => p.includes(id) ? p.filter((x) => x !== id) : (p.length >= 4 ? p : [...p, id]));
+  const toggleSel = (id: string) =>
+    setSelected((p) => (p.includes(id) ? p.filter((x) => x !== id) : p.length >= 4 ? p : [...p, id]));
 
   const orderId = searchParams.get('id');
   const o = orderId ? getOrderById(orderId) : null;
@@ -209,10 +214,12 @@ function OrderDetailContent() {
       orderId: o.id,
       message: responseText,
       proposedBudget: propBudget.trim() ? formatMoney(propBudget) : undefined,
+      proposedDeadline: propDeadline || undefined,
     });
     if (!ok) { notify('Вы уже откликнулись на эту заявку'); return; }
     setResponseText('');
     setPropBudget('');
+    setPropDeadline('');
     notify('Отклик отправлен');
   };
 
@@ -223,13 +230,17 @@ function OrderDetailContent() {
 
   const hero = typeImage(o.objectType);
   const team = (o.specialists && o.specialists.length) ? o.specialists : ['Архитектор', 'ГАП', 'Конструктор', 'Инженер-электрик', 'Инженер-сантехник'];
+  // «Команда проекта» — приглашённые проектировщики (I15).
+  const invitedTeam = (o.invitedDesignerIds ?? [])
+    .map((id) => MOCK_DESIGNERS.find((d) => d.id === id))
+    .filter(Boolean);
 
   const Main = () => {
     if (tab === 'Проектировщики') return (
       <div className="col gap16" style={{ minWidth: 0 }}>
         <div className="row between" style={{ alignItems: 'flex-end' }}>
           <h3 className="section-title" style={{ margin: 0 }}>Отклики на заявку</h3>
-          <span className="dim" style={{ fontSize: 13 }}>{responses.length} откликов</span>
+          <span className="dim" style={{ fontSize: 13 }}>{responses.length} {plural(responses.length, ['отклик', 'отклика', 'откликов'])}</span>
         </div>
 
         {responses.length === 0 && (
@@ -265,7 +276,9 @@ function OrderDetailContent() {
                 {o.sections?.length > 0 && <span className="rcov"><Icon name="layers" size={14} /><b>{cm.covCount}</b>/{cm.total} разделов</span>}
               </span>
               <div className="row gap8">
-                <button className="btn btn-ghost btn-sm" onClick={() => router.push('/designers')}>Профиль</button>
+                {MOCK_DESIGNERS.some((d) => d.id === r.designerId) && (
+                  <button className="btn btn-ghost btn-sm" onClick={() => router.push(`/designers/${r.designerId}`)}>Профиль</button>
+                )}
                 {isOwner && (
                   o.assignedDesignerId === r.designerId
                     ? <button className="btn btn-sm" disabled style={{ opacity: 0.75, background: 'var(--accent-soft)', color: 'var(--green)' }}><Icon name="check" size={14} /> Выбран</button>
@@ -304,6 +317,10 @@ function OrderDetailContent() {
               <div className="field" style={{ marginTop: 12 }}>
                 <input className="input" inputMode="numeric" placeholder="Предлагаемый бюджет, ₽ (необязательно)" value={propBudget} onChange={(e) => setPropBudget(e.target.value.replace(/[^\d\s]/g, ''))} />
                 {propBudget.trim() && !isValidBudget(propBudget) && <span style={{ fontSize: 11, color: 'var(--red)', marginTop: 4, display: 'block' }}>Введите сумму числом</span>}
+              </div>
+              <div className="field" style={{ marginTop: 12 }}>
+                <label>Предлагаемый срок (необязательно)</label>
+                <input type="date" className="input" value={propDeadline} onChange={(e) => setPropDeadline(e.target.value)} />
               </div>
               <button className="btn btn-primary mt16" onClick={handleSubmitResponse} disabled={!responseText.trim()}>Отправить отклик</button>
             </div>
@@ -442,7 +459,7 @@ function OrderDetailContent() {
 
       <div className="detail__grid">
         <div className="col gap20" style={{ minWidth: 0 }}>
-          <Main />
+          {Main()}
         </div>
 
         <div className="col gap20">
@@ -472,6 +489,39 @@ function OrderDetailContent() {
               </div>
             </div>
           )}
+
+          {/* Команда — только для заявок типа «Команда» (решение 16.08, вопрос 6):
+              «один специалист» и «организация» идут по ветке одиночного исполнителя. */}
+          {o.scale === 'team' && <div className="card">
+            <h3 className="section-title" style={{ fontSize: 16, marginBottom: 14 }}>Команда проекта</h3>
+            {invitedTeam.length ? (
+              <div className="col gap10">
+                {invitedTeam.map((d) => (
+                  <div key={d.id} className="row gap12" style={{ alignItems: 'center' }}>
+                    <Avatar text={initials(d.name)} size={40} />
+                    <div className="grow" style={{ minWidth: 0 }}>
+                      <div style={{ fontWeight: 700, fontSize: 14 }}>
+                        <a className="link" onClick={() => router.push(`/designers/${d.id}`)}>{d.name}</a>
+                      </div>
+                      <div className="dim" style={{ fontSize: 12.5 }}>{d.sections.join(' · ')}</div>
+                    </div>
+                    {isOwner && (
+                      <button className="iconbtn" title="Убрать из проекта" onClick={() => { toggleInvitedDesigner(o.id, d.id); notify('Убран из проекта'); }}>
+                        <Icon name="x" size={16} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="muted" style={{ margin: 0, fontSize: 13.5 }}>Команда пока не набрана.</p>
+            )}
+            {isOwner && (
+              <button className="btn btn-outline btn-sm btn-block mt16" onClick={() => router.push('/designers?orderId=' + o.id)}>
+                <Icon name="plus" size={14} /> Пригласить
+              </button>
+            )}
+          </div>}
 
           <div className="card">
             <h3 className="section-title" style={{ fontSize: 16, marginBottom: 6 }}>Требуются специалисты</h3>

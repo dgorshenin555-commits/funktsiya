@@ -1,4 +1,3 @@
-// @ts-nocheck
 'use client';
 import { useApp } from '@/lib/store';
 import { Icon } from '../../_orders/icons';

@@ -8,7 +8,7 @@ import { useState, useRef, useLayoutEffect, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useApp } from '@/lib/store';
 import { Icon } from '../../_orders/icons';
-import { StatusBadge, STATUS_BADGE, typeImage, typeLabel, urgencyBucket, formatDeadline } from '../../_orders/shared';
+import { StatusBadge, STATUS_BADGE, typeImage, typeLabel, urgencyBucket, formatDeadline, plural } from '../../_orders/shared';
 import '../../_orders/orders.css';
 
 const TYPE_OPTIONS = ['Все типы', 'Коммерческая недвижимость', 'Жилая недвижимость', 'Промышленность', 'Частное строительство', 'Линейные объекты', 'Здания и сооружения'];
@@ -147,7 +147,7 @@ function OrderCard({ o, go }) {
           {waiting
             ? <span className="row gap8" style={{ color: 'var(--amber)', fontWeight: 700 }}><Icon name="wallet" size={16} />{o.budget || 'Ждём предложений'}</span>
             : <span className="price row gap8"><Icon name="wallet" size={17} style={{ color: 'var(--accent-2)' }} />{o.budget}</span>}
-          <span className="row gap6 dim" style={{ fontSize: 13 }}><Icon name="comment" size={15} />{o.responsesCount} откликов</span>
+          <span className="row gap6 dim" style={{ fontSize: 13 }}><Icon name="comment" size={15} />{o.responsesCount} {plural(o.responsesCount, ['отклик', 'отклика', 'откликов'])}</span>
         </div>
       </div>
     </div>
@@ -156,7 +156,7 @@ function OrderCard({ o, go }) {
 
 export default function OrdersPage() {
   const router = useRouter();
-  const { orders } = useApp();
+  const { orders, user, getMyOrders } = useApp();
   const go = (target, id) => {
     if (target === 'order-new') router.push('/orders/new');
     else if (target === 'order-detail') router.push(`/orders/detail?id=${id}`);
@@ -169,8 +169,12 @@ export default function OrdersPage() {
   const [hint, setHint] = useState(null);
   const [q, setQ] = useState('');
 
+  // Ролевой базовый набор (I14): проектировщик видит опубликованные заявки,
+  // заказчик/прочие — только свои (пункт меню у заказчика скрыт, это защита от прямого URL).
+  const baseOrders = user?.role === 'designer' ? orders.filter((o) => o.status === 'published') : getMyOrders();
+
   const query = q.trim().toLowerCase();
-  const list = orders.filter((o) =>
+  const list = baseOrders.filter((o) =>
     (type === 'Все типы' || typeLabel(o.objectType) === type) &&
     (status === 'Все статусы' || (STATUS_BADGE[o.status] && STATUS_BADGE[o.status].label === status)) &&
     (urg == null || urgencyBucket(o.deadline) === urg) &&
@@ -202,14 +206,14 @@ export default function OrdersPage() {
           <UrgencyScale value={urg} onPick={setUrg} />
         </div>
         <div className="viewtoggle">
-          {['list', 'columns', 'menu'].map((v) => (
-            <button key={v} className={view === v ? 'is-active' : ''} onClick={() => setView(v)}><Icon name={v === 'columns' ? 'columns' : v === 'menu' ? 'menu' : 'list'} /></button>
+          {['list', 'columns'].map((v) => (
+            <button key={v} className={view === v ? 'is-active' : ''} onClick={() => setView(v)}><Icon name={v === 'columns' ? 'columns' : 'list'} /></button>
           ))}
         </div>
       </div>
 
       <div className="row between" style={{ marginBottom: 18 }}>
-        <span className="dim" style={{ fontSize: 13 }}>Найдено: {list.length} из {orders.length}</span>
+        <span className="dim" style={{ fontSize: 13 }}>Найдено: {list.length} из {baseOrders.length}</span>
         {dirty && <button className="btn btn-ghost btn-sm" onClick={reset}><Icon name="x" size={13} /> Сбросить</button>}
       </div>
 

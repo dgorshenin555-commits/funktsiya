@@ -137,7 +137,7 @@ function ExpertiseDetailContent() {
           <div className="card">
             <div className="dim" style={{ fontSize: 13, fontWeight: 600, marginBottom: 14 }}>Условия</div>
             <div className="price" style={{ fontSize: 26 }}>{e.budget || 'По договорённости'}</div>
-            <div className="dim" style={{ fontSize: 12.5, margin: '4px 0 18px' }}>гонорар эксперта · {e.responsesCount} {otklik(e.responsesCount)}</div>
+            <div className="dim" style={{ fontSize: 12.5, margin: '4px 0 18px' }}>гонорар обследователя · {e.responsesCount} {otklik(e.responsesCount)}</div>
             <div className="col gap10" style={{ marginBottom: 18 }}>
               <div className="row between"><span className="dim" style={{ fontSize: 13 }}>Срок проверки</span><b style={{ fontSize: 13.5 }}>До {formatDeadline(e.deadline)}</b></div>
               <div className="row between"><span className="dim" style={{ fontSize: 13 }}>Тип экспертизы</span><b style={{ fontSize: 13.5 }}>{expType}</b></div>

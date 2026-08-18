@@ -10,9 +10,8 @@ import { useApp } from '@/lib/store';
 import { Icon } from '../../_orders/icons';
 import '../../_orders/orders.css';
 
-const SECTION_FILTERS = ['АР', 'КР', 'ЭОМ', 'ВК', 'ОВиК', 'ГС', 'ТХ', 'ПБ', 'СС'];
+const SECTION_FILTERS = ['АР', 'КР', 'ЭОМ', 'ВК', 'ОВиК', 'ГС', 'ТХ', 'ПБ', 'СС', 'ЭС', 'РАСЧ', 'ЧЕРТ', '3DSK'];
 
-const SHORTLIST_KEY = 'pm_shortlist';
 
 const AVATAR_COLORS = [
   ['#667eea', '#764ba2'],
@@ -66,7 +65,7 @@ function resolveSpecToSection(spec: string): string | null {
   const match = allSections.find((sec) =>
     sec.specialists.some((sp) => sp.toLowerCase().includes(target) || target.includes(sp.toLowerCase()))
   );
-  if (match && SECTION_FILTERS.includes(match.code)) return match.code;
+  if (match) return match.code;
 
   return null;
 }
@@ -276,7 +275,7 @@ function trustOf(d: any) {
   return { vf, trust };
 }
 
-function PersonCard({ designer, onSelect, onProfile, onShortlist, inShortlist }: any) {
+function PersonCard({ designer, onSelect, onProfile, onShortlist, inShortlist, projectMode }: any) {
   const { vf, trust } = trustOf(designer);
   return (
     <div
@@ -321,23 +320,21 @@ function PersonCard({ designer, onSelect, onProfile, onShortlist, inShortlist }:
         </span>
       </div>
       <div className="row gap8">
-        <button
-          className="btn btn-ghost btn-sm grow"
-          onClick={(e) => {
-            e.stopPropagation();
-            onShortlist();
-          }}
-        >
-          {inShortlist ? (
-            <>
-              В проекте <Icon name="check" size={14} />
-            </>
-          ) : (
-            <>
-              <Icon name="plus" size={14} /> В проект
-            </>
-          )}
-        </button>
+        {projectMode && (
+          <button
+            className="btn btn-ghost btn-sm grow"
+            onClick={(e) => {
+              e.stopPropagation();
+              onShortlist();
+            }}
+          >
+            {inShortlist ? (
+              <>В проекте <Icon name="check" size={14} /></>
+            ) : (
+              <><Icon name="plus" size={14} /> В проект</>
+            )}
+          </button>
+        )}
         <button
           className="btn btn-primary btn-sm"
           onClick={(e) => {
@@ -355,15 +352,21 @@ function PersonCard({ designer, onSelect, onProfile, onShortlist, inShortlist }:
 function DesignersPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { notify } = useApp();
+  const { notify, getOrderById, toggleInvitedDesigner } = useApp();
   const [search, setSearch] = useState('');
   const [regionFilter, setRegionFilter] = useState('');
   const [sectionFilter, setSectionFilter] = useState('');
   const [rateFilter, setRateFilter] = useState(0);
   const [hint, setHint] = useState<number | null>(null);
   const [sroOnly, setSroOnly] = useState(false);
-  const [selectedDesigner, setSelectedDesigner] = useState<Designer | null>(MOCK_DESIGNERS[1]);
-  const [shortlist, setShortlist] = useState<string[]>([]);
+  const [selectedDesigner, setSelectedDesigner] = useState<Designer | null>(MOCK_DESIGNERS[0]);
+
+  // Режим приглашения в конкретную заявку (?orderId=…). Внеконтекстное «В избранное»
+  // убрано по решению заказчика от 16.08 (вопрос 3): один механизм — через заявку.
+  // Приглашение доступно только командным заявкам (вопрос 6).
+  const orderIdParam = searchParams.get('orderId');
+  const orderFromParam = orderIdParam ? getOrderById(orderIdParam) : null;
+  const projectOrder = orderFromParam && orderFromParam.scale === 'team' ? orderFromParam : null;
 
   // Предзаполнение фильтра/поиска из ?spec=… (BUG-012).
   const specParam = searchParams.get('spec');
@@ -379,30 +382,21 @@ function DesignersPageContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [specParam]);
 
-  // Инициализация шортлиста из localStorage (BUG-016) — в useEffect, чтобы не было SSR-mismatch.
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      const saved = JSON.parse(localStorage.getItem(SHORTLIST_KEY) || '[]');
-      if (Array.isArray(saved)) setShortlist(saved.filter((x): x is string => typeof x === 'string'));
-    } catch {}
-  }, []);
+  const inProject = (id: string) =>
+    projectOrder ? (projectOrder.invitedDesignerIds ?? []).includes(id) : false;
 
-  const toggleShortlist = (id: string) => {
-    setShortlist((prev) => {
-      const inList = prev.includes(id);
-      const next = inList ? prev.filter((x) => x !== id) : [...prev, id];
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(SHORTLIST_KEY, JSON.stringify(next));
-      }
-      notify(inList ? 'Убрано из проекта' : 'Добавлено в проект');
-      return next;
-    });
+  const handleProjectToggle = (designer: Designer) => {
+    if (!projectOrder) return;
+    const wasIn = (projectOrder.invitedDesignerIds ?? []).includes(designer.id);
+    toggleInvitedDesigner(projectOrder.id, designer.id);
+    notify(wasIn ? 'Убран из проекта' : `Приглашён в проект «${projectOrder.title}»`);
   };
 
   const filtered = MOCK_DESIGNERS.filter((d) => {
     if (search && !d.name.toLowerCase().includes(search.toLowerCase())) return false;
-    if (regionFilter && d.city !== regionFilter) return false;
+    // Регион теперь отдельное поле анкеты по справочнику REGIONS (вопрос 7, 16.08);
+    // city оставлен как фолбэк для записей без региона.
+    if (regionFilter && (d.region ?? d.city) !== regionFilter) return false;
     if (sectionFilter && !d.sections.includes(sectionFilter)) return false;
     if (sroOnly && !d.sroNumber) return false;
     if (rateFilter && d.rating < rateFilter) return false;
@@ -468,8 +462,9 @@ function DesignersPageContent() {
                   designer={designer === featured ? { ...designer, featured: true } : designer}
                   onSelect={() => setSelectedDesigner(designer)}
                   onProfile={() => router.push(`/designers/${designer.id}`)}
-                  onShortlist={() => toggleShortlist(designer.id)}
-                  inShortlist={shortlist.includes(designer.id)}
+                  onShortlist={() => handleProjectToggle(designer)}
+                  inShortlist={inProject(designer.id)}
+                  projectMode={!!projectOrder}
                 />
               ))}
             </div>
@@ -570,7 +565,7 @@ function DesignersPageContent() {
 
           <div className="card">
             <h3 className="section-title" style={{ fontSize: 16, marginBottom: 14 }}>
-              Последние проекты
+              Примеры проектов на платформе
             </h3>
             <div className="grid-2" style={{ gap: 12 }}>
               {MOCK_PROJECTS.map((p) => (
@@ -583,19 +578,15 @@ function DesignersPageContent() {
                 </div>
               ))}
             </div>
-            {selectedDesigner && (
+            {selectedDesigner && projectOrder && (
               <button
                 className="btn btn-outline btn-sm btn-block mt16"
-                onClick={() => toggleShortlist(selectedDesigner.id)}
+                onClick={() => handleProjectToggle(selectedDesigner)}
               >
-                {shortlist.includes(selectedDesigner.id) ? (
-                  <>
-                    В проекте <Icon name="check" size={14} />
-                  </>
+                {inProject(selectedDesigner.id) ? (
+                  <>В проекте <Icon name="check" size={14} /></>
                 ) : (
-                  <>
-                    Добавить в проект <Icon name="arrowRight" size={14} />
-                  </>
+                  <>Пригласить в проект <Icon name="arrowRight" size={14} /></>
                 )}
               </button>
             )}

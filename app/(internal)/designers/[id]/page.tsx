@@ -1,8 +1,8 @@
 // @ts-nocheck
 'use client';
 
-import { useParams, useRouter } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { MOCK_DESIGNERS, MOCK_PROJECTS } from '@/lib/mock-data';
 import { useApp } from '@/lib/store';
@@ -11,7 +11,7 @@ import '../../../_orders/orders.css';
 
 const TABS = ['Обзор', 'Портфолио', 'Отзывы', 'Документы и СРО'];
 
-const SHORTLIST_KEY = 'pm_shortlist';
+const SHORTLIST_KEY = (userId?: string) => `pm_shortlist_${userId ?? 'anon'}`;
 
 // Уникальные разделы (защита от дублей в данных — BUG-014).
 function uniqueSections(sections: string[]): string[] {
@@ -19,10 +19,14 @@ function uniqueSections(sections: string[]): string[] {
 }
 
 const AVATAR_COLORS = [
-  'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-  'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-  'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-  'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
+  ['#667eea', '#764ba2'],
+  ['#f093fb', '#f5576c'],
+  ['#4facfe', '#00f2fe'],
+  ['#43e97b', '#38f9d7'],
+  ['#fa709a', '#fee140'],
+  ['#a18cd1', '#fbc2eb'],
+  ['#ffecd2', '#fcb69f'],
+  ['#89f7fe', '#66a6ff'],
 ];
 
 // Демо-агрегат рейтинга (гистограмма) в духе эталона Cloud Design.
@@ -58,39 +62,58 @@ const DOCS = [
   { ic: 'shield', name: 'Страхование ответственности', sub: 'Полис № 24/0915 · до 31.12.2025', tag: ['wait', 'Истекает'] },
 ];
 
-export default function DesignerProfilePage() {
+function DesignerProfileContent() {
   const params = useParams();
   const router = useRouter();
-  const { notify } = useApp();
+  const searchParams = useSearchParams();
+  const { notify, getOrderById, toggleInvitedDesigner, user } = useApp();
   const id = params?.id as string;
+  const shortlistKey = SHORTLIST_KEY(user?.id);
   const [activeTab, setActiveTab] = useState('Обзор');
   const [inShortlist, setInShortlist] = useState(false);
 
-  // Ищем дизайнера по ID, или берем первого как фолбек (на случай перезагрузки страницы)
-  const designer = MOCK_DESIGNERS.find(d => d.id === id) || MOCK_DESIGNERS[0];
+  // Ищем дизайнера по ID (без фолбека на первого — иначе неизвестный id показывает чужой профиль).
+  const designer = MOCK_DESIGNERS.find(d => d.id === id);
+
+  // Режим приглашения в конкретную заявку (?orderId=…) vs внеконтекстное избранное.
+  const orderIdParam = searchParams.get('orderId');
+  const projectOrder = orderIdParam ? getOrderById(orderIdParam) : null;
+  const inProject = projectOrder && designer
+    ? (projectOrder.invitedDesignerIds ?? []).includes(designer.id)
+    : inShortlist;
+
+  const handleInvite = () => {
+    if (!designer) return;
+    if (!projectOrder) { toggleShortlist(); return; }
+    const wasIn = (projectOrder.invitedDesignerIds ?? []).includes(designer.id);
+    toggleInvitedDesigner(projectOrder.id, designer.id);
+    notify(wasIn ? 'Убран из проекта' : `Приглашён в проект «${projectOrder.title}»`);
+  };
 
   // Инициализация состояния шортлиста из localStorage (BUG-016) —
   // в useEffect, чтобы не было SSR-mismatch.
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    if (!designer) return;
     try {
-      const saved = JSON.parse(localStorage.getItem(SHORTLIST_KEY) || '[]');
+      const saved = JSON.parse(localStorage.getItem(shortlistKey) || '[]');
       if (Array.isArray(saved)) setInShortlist(saved.includes(designer.id));
     } catch {}
-  }, [designer.id]);
+  }, [designer?.id, shortlistKey]);
 
   const toggleShortlist = () => {
     if (typeof window === 'undefined') return;
+    if (!designer) return;
     let saved: string[] = [];
     try {
-      const parsed = JSON.parse(localStorage.getItem(SHORTLIST_KEY) || '[]');
+      const parsed = JSON.parse(localStorage.getItem(shortlistKey) || '[]');
       if (Array.isArray(parsed)) saved = parsed.filter((x): x is string => typeof x === 'string');
     } catch {}
     const isIn = saved.includes(designer.id);
     const next = isIn ? saved.filter((x) => x !== designer.id) : [...saved, designer.id];
-    localStorage.setItem(SHORTLIST_KEY, JSON.stringify(next));
+    localStorage.setItem(shortlistKey, JSON.stringify(next));
     setInShortlist(!isIn);
-    notify(isIn ? 'Убрано из проекта' : 'Добавлено в проект');
+    notify(isIn ? 'Убрано из избранного' : 'Добавлено в избранное');
   };
 
   if (!designer) {
@@ -107,7 +130,8 @@ export default function DesignerProfilePage() {
     );
   }
 
-  const avatarGradient = AVATAR_COLORS[MOCK_DESIGNERS.indexOf(designer) % AVATAR_COLORS.length];
+  const [avatarC0, avatarC1] = AVATAR_COLORS[MOCK_DESIGNERS.indexOf(designer) % AVATAR_COLORS.length];
+  const avatarGradient = `linear-gradient(135deg, ${avatarC0}, ${avatarC1})`;
   const avatarText = designer.type === 'company' ? '' : designer.name.substring(0, 2).toUpperCase();
 
   return (
@@ -166,12 +190,14 @@ export default function DesignerProfilePage() {
               <Icon name="comment" size={15} /> Написать
             </button>
             <button
-              className={inShortlist ? 'btn btn-ghost' : 'btn btn-primary'}
-              onClick={toggleShortlist}
+              className={inProject ? 'btn btn-ghost' : 'btn btn-primary'}
+              onClick={handleInvite}
             >
-              {inShortlist
-                ? <><Icon name="check" size={15} /> В проекте</>
-                : <><Icon name="rocket" size={15} /> Пригласить в проект</>}
+              {inProject
+                ? <><Icon name="check" size={15} /> {projectOrder ? 'В проекте' : 'В избранном'}</>
+                : projectOrder
+                  ? <><Icon name="rocket" size={15} /> Пригласить в проект</>
+                  : <><Icon name="star" size={15} /> В избранное</>}
             </button>
           </div>
         </div>
@@ -405,5 +431,13 @@ export default function DesignerProfilePage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function DesignerProfilePage() {
+  return (
+    <Suspense fallback={<div style={{ padding: 40, textAlign: 'center' }}>Загрузка…</div>}>
+      <DesignerProfileContent />
+    </Suspense>
   );
 }

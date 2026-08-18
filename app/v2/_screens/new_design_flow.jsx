@@ -1,7 +1,9 @@
 "use client";
 
 /* Экран варианта Б. Источник: design-handoff-v2/new_design_flow.jsx
-   Файл сгенерирован из выгрузки Cloud Design — правки вносить в источник. */
+   Первоначально импортирован скриптом tools/transform_jsx.py, но это был
+   разовый перенос: дальше экран дописывается прямо здесь. Повторно
+   генератор не гоняем — он вернёт файл к состоянию выгрузки. */
 import * as React from "react";
 import { SCREENS } from "./registry";
 const { useState } = React;
@@ -158,7 +160,7 @@ function Expertise({ go }) {
             <div className="box" style={{ display: "grid", gap: 10 }}>
               <span className="lbl">Экспертная организация</span>
               <h3 style={{ margin: 0 }}>ЭЦ «Проектстандарт»</h3>
-              <p>Аккредитация · 2 216 заключений · индекс доверия 94.</p>
+              <p>Аккредитация · 2 216 заключений.</p>
               <button className="btn btn-line btn-sm" onClick={() => go("pick")}>Профиль организации</button>
             </div>
           </div>

@@ -403,7 +403,10 @@
 .fx .price { font-size: 18px; font-weight: 800; color: #fff; letter-spacing: -.01em; }
 .fx .divider { height: 1px; background: var(--border); border: none; margin: 0; }
 .fx .section-title { font-size: 19px; font-weight: 700; color: #fff; margin: 0; }
-.fx .fade-in { animation: fade .4s ease both; }
+/* Без fill-mode: с ним transform остаётся после анимации (identity-матрица),
+   контейнер навсегда создаёт stacking context и запирает z-index попапов внутри
+   (календарь уходил под карточку превью). Delay у анимации нет — fill не нужен. */
+.fx .fade-in { animation: fade .4s ease; }
 @keyframes fade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 
 /* === layouts.css === */
@@ -471,10 +474,6 @@
 .fx .auth { height: 100vh; display: grid; place-items: center; background: radial-gradient(100% 100% at 50% 0%, rgba(139,108,242,.12), transparent 50%), var(--bg); padding: 24px; }
 .fx .auth__card { width: 100%; max-width: 440px; padding: 34px; }
 .fx .authx { height: 100vh; display: grid; grid-template-columns: 1.05fr .95fr; background: var(--bg); overflow: hidden; }
-@media (max-width: 900px) {
-.fx .authx { grid-template-columns: 1fr; }
-.fx .authx__brand { display: none; }
-}
 .fx .authx__brand { position: relative; display: flex; flex-direction: column; justify-content: space-between; padding: 36px; overflow: hidden;
   background: linear-gradient(150deg, var(--accent) 0%, var(--accent-2) 55%, color-mix(in srgb, var(--accent) 70%, #000) 100%); color: #fff; }
 .fx .authx__top { display: inline-flex; align-items: center; gap: 12px; position: relative; z-index: 3; cursor: pointer; width: max-content; }
@@ -487,7 +486,7 @@
 .fx .authx__glow--2 { width: 420px; height: 420px; bottom: -120px; left: -80px; background: rgba(0,0,0,.18); }
 .fx .authx__stage { position: relative; z-index: 2; flex: 1; display: flex; align-items: flex-end; justify-content: center; min-height: 0; }
 .fx .chars { position: relative; width: 480px; height: 360px; }
-.fx .chars-embed { position: relative; }
+.fx .chars-embed { position: relative; pointer-events: none; }
 .fx .chars-embed .chars { position: absolute; top: 0; left: 0; }
 .fx .char { position: absolute; bottom: 0; transition: transform .6s ease, height .6s ease; transform-origin: bottom center; }
 .fx .char__eyes { position: absolute; display: flex; left: 30px; top: 38px; transition: left .55s ease, top .55s ease; }
@@ -503,6 +502,11 @@
 .fx .pupil--bare { }
 .fx .authx__form { display: flex; align-items: center; justify-content: center; padding: 32px; background: var(--bg); }
 .fx .authx__formwrap { width: 100%; max-width: 380px; }
+@media (max-width: 900px) {
+.fx .authx { grid-template-columns: 1fr; height: auto; min-height: 100vh; overflow: visible; }
+.fx .authx__brand { display: flex; min-height: auto; padding: 16px 20px; }
+.fx .authx__stage, .fx .authx__foot, .fx .authx__glow { display: none; }
+}
 .fx .authx__head { text-align: center; }
 /* Карточки выбора роли в .fx-стиле (SVG-иконки вместо эмодзи). */
 .fx .role-selector { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -658,6 +662,11 @@
 .fx .chip-toggle.is-sel { background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent-2); }
 .fx .dropzone { border: 1.5px dashed var(--border-2); border-radius: var(--r-md); padding: 44px; text-align: center; color: var(--text-dim); display: flex; flex-direction: column; align-items: center; gap: 14px; font-size: 14px; }
 .fx .newgrid__preview { position: sticky; top: 0; }
+/* В одноколоночной раскладке превью идёт после формы: sticky заставлял его
+   наезжать на форму и календарь при прокрутке (перехват кликов). */
+@media (max-width: 1000px) {
+.fx .newgrid__preview { position: static; }
+}
 .fx .catalog { display: grid; grid-template-columns: 1fr 340px; gap: 24px; align-items: start; }
 @media (max-width: 1100px) {
 .fx .catalog { grid-template-columns: 1fr; }

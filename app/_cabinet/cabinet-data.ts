@@ -1,12 +1,13 @@
-// @ts-nocheck
-export const roleGroup = (role) =>
+import type { UserRole, OrderStatus } from '@/lib/types';
+
+export const roleGroup = (role: UserRole) =>
   role === 'customer' ? 'customer' : (role === 'designer' || role === 'expert') ? 'executor' : 'other';
 
-export const ORDER_BUCKET = (status) =>
+export const ORDER_BUCKET = (status: OrderStatus) =>
   (status === 'published' || status === 'in_progress') ? 'active' : 'done';
 
 // status обследования (ExpertiseProject) → бакет
-export const EXP_BUCKET = (status) =>
+export const EXP_BUCKET = (status: string) =>
   status === 'Положительное заключение' ? 'done' : 'active';
 
 export const CABINET_TABS = {

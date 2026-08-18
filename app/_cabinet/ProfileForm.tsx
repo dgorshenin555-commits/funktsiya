@@ -10,7 +10,7 @@ import { Icon } from '../_orders/icons';
 const ROLES: { value: UserRole; label: string; icon: string }[] = [
   { value: 'customer', label: 'Заказчик', icon: 'building' },
   { value: 'designer', label: 'Проектировщик', icon: 'pen' },
-  { value: 'expert', label: 'Эксперт', icon: 'shield' },
+  { value: 'expert', label: 'Обследователь', icon: 'shield' },
   { value: 'manufacturer', label: 'Производитель', icon: 'stamp' },
 ];
 
@@ -48,7 +48,10 @@ export function ProfileForm() {
           <div className="overline" style={{ marginBottom: 12 }}>Роль на платформе</div>
           <div className="grid-2" style={{ gap: 12, marginBottom: 22 }}>
             {ROLES.map((r) => (
-              <button type="button" key={r.value} className={'rolecard' + (role === r.value ? ' is-sel' : '')} onClick={() => { setRole(r.value); setSaved(false); }}>
+              <button type="button" key={r.value} className={'rolecard' + (role === r.value ? ' is-sel' : '')} onClick={() => {
+                if (r.value !== user.role && !window.confirm(`Вам будут доступны только данные для роли «${r.label}». Данные других ролей не удаляются и снова станут доступны при обратной смене роли. Рекомендуем отдельный профиль для каждой роли. Сменить роль?`)) return;
+                setRole(r.value); setSaved(false);
+              }}>
                 <Icon name={r.icon} size={24} /><span>{r.label}</span>
               </button>
             ))}
