@@ -28,6 +28,34 @@ OUT = os.path.join(ROOT, "design-handoff-v2", "lib_bundle.jsx")
 # порядок важен: store опирается на данные, данные — ни на что
 SOURCES = ["constants", "mock-data", "store"]
 
+# Лёгкий режим (--data-only): без store.
+# Прототип получает настоящие данные, но остаётся витриной — кнопки
+# ничего не меняют. Этого хватает, чтобы ловить огрехи вёрстки: они
+# вылезают на длинных названиях и полных списках, а не на переходах.
+# Полный режим тащит в Cloud Design состояние, которое потом расходится
+# с проектом и требует слияния при каждом обмене.
+DATA_ONLY_SHIM = '''
+  /* Чтение — из настоящих данных проекта, запись — заглушки.
+     Прототип показывает платформу как есть, но ничего не меняет. */
+  const DEMO_USER = {
+    id: "u-demo", name: "Игорь Савельев", role: "customer",
+    company: "ООО «Ситипроект»", city: "Москва",
+  };
+  function useApp() {
+    return {
+      user: DEMO_USER,
+      orders: MOCK_ORDERS,
+      getOrderById: (id) => MOCK_ORDERS.find((o) => o.id === id) || null,
+      getResponsesForOrder: (id) => MOCK_RESPONSES.filter((r) => r.orderId === id),
+      hasResponded: () => false,
+      addOrder: () => {},
+      addResponse: () => false,
+      selectExecutor: () => {},
+      notify: () => {},
+    };
+  }
+'''
+
 
 def transpile(tmp):
     files = [os.path.join(ROOT, "lib", n) for n in
@@ -66,12 +94,14 @@ def strip_module_syntax(src):
 
 
 def main():
+    data_only = "--data-only" in sys.argv
     tmp = tempfile.mkdtemp(prefix="lib-js-")
     transpile(tmp)
 
+    sources = [s for s in SOURCES if not (data_only and s == "store")]
     parts = []
     all_exports = []
-    for name in SOURCES:
+    for name in sources:
         path = os.path.join(tmp, name + (".jsx" if name == "store" else ".js"))
         if not os.path.exists(path):
             print("не собрался:", name)
@@ -81,6 +111,10 @@ def main():
         all_exports.extend(exported)
         print(f"  {name:<12} экспортов: {len(exported)}")
 
+    if data_only:
+        parts.append("/* ---------- витрина вместо состояния ---------- */"
+                     + DATA_ONLY_SHIM)
+        all_exports.append("useApp")
     names = ", ".join(sorted(set(all_exports)))
     header = '''/* lib_bundle.jsx — общая логика платформы для прототипа в Cloud Design.
 
@@ -88,9 +122,7 @@ def main():
    python3 tools/build_lib_for_design.py — правки вносить туда, иначе
    при следующей сборке они пропадут.
 
-   Подключать ПЕРВЫМ, до экранов: они берут отсюда данные и состояние.
-   Оболочку приложения нужно обернуть в <AppProvider>, иначе useApp
-   не найдёт контекст. */
+   Подключать ПЕРВЫМ, до экранов: они берут отсюда данные. */
 (function () {
   const { createContext, useContext, useState, useEffect, useCallback, useRef } = React;
 
