@@ -37,6 +37,11 @@ MODULES = [
     "new_design_scrub.jsx",
     "new_design_solo.jsx",
     "new_design_wizard.jsx",
+    "new_design_land.jsx",
+    "new_design_land2.jsx",
+    "new_design_land3.jsx",
+    "new_design_signup.jsx",
+    "new_design_client.jsx",
 ]
 
 

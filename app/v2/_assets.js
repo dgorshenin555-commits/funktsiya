@@ -42,4 +42,5 @@ export const IMG = {
   'hero-industrial-2.png': heroIndustrial.src,
   'hero-private-2.png': heroPrivate.src,
   'tehnosfera-logo.jpg': caparolLogo.src,
+  'pro-at-work.png': heroIndustrial.src,
 };
