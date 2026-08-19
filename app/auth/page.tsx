@@ -155,6 +155,15 @@ export default function AuthPage() {
   // Код восстановления показывается один раз сразу после регистрации.
   const [recoveryCode, setRecoveryCode] = useState('');
 
+  // Кнопка «Регистрация» должна открывать форму регистрации, а не вход
+  // (?mode=register). Читаем адрес вручную: useSearchParams в статическом
+  // экспорте требует Suspense-обёртки, а тут достаточно разового чтения.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const m = new URLSearchParams(window.location.search).get('mode');
+    if (m === 'register' || m === 'reset') setMode(m);
+  }, []);
+
   // presentation-only state (анимация персонажей, не влияет на логику входа)
   const [show, setShow] = useState(false);
   const [typing, setTyping] = useState(false);
