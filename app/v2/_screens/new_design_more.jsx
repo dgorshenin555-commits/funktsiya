@@ -6,6 +6,8 @@
    генератор не гоняем — он вернёт файл к состоянию выгрузки. */
 import * as React from "react";
 import { SCREENS } from "./registry";
+import { useApp } from "@/lib/store";
+import { REGIONS, EXECUTOR_CATEGORIES, STAGE_P_CAPITAL, STAGE_LABELS } from "@/lib/constants";
 const { useState } = React;
 const Arr = ({ s = 14 }) => (<svg width={s} height={s} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M3 8h10M9 4l4 4-4 4" /></svg>);
 const Search = ({ s = 15 }) => (<svg width={s} height={s} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><circle cx="7" cy="7" r="4.4" /><path d="M10.4 10.4L14 14" /></svg>);
@@ -180,7 +182,12 @@ function Pricing() {
 }
 
 /* ============ настройки ============ */
+/* Единственное место, где исполнитель может поправить свою анкету после
+   регистрации (категории, разделы, стадии) — поэтому экран работает на
+   реальных данных стора, а не на демо-строках, как остальной вариант Б. */
 function Settings() {
+  const { user, updateUser, logout } = useApp();
+
   const [sw, setSw] = useState({ mail: true, push: true, digest: false, public: true });
   const t = k => setSw(p => ({ ...p, [k]: !p[k] }));
   const ROWS = [
@@ -189,6 +196,62 @@ function Settings() {
     ["digest", "Сводка за неделю", "Одно письмо по понедельникам"],
     ["public", "Показывать профиль в каталоге", "Заказчики смогут найти вас и пригласить в заявку"],
   ];
+
+  /* Поля правим локально и отдаём в стор только по «Сохранить» —
+     иначе каждый нажатый символ уходил бы в localStorage. */
+  const [name, setName] = useState("");
+  const [company, setCompany] = useState("");
+  const [phone, setPhone] = useState("");
+  const [region, setRegion] = useState("");
+  const [cats, setCats] = useState([]);
+  const [secs, setSecs] = useState([]);
+  const [stages, setStages] = useState([]);
+  const [saved, setSaved] = useState(""); // какой блок только что сохранён: "profile" | "spec"
+
+  /* Стор гидратируется из localStorage уже после первого рендера,
+     поэтому поля наполняем эффектом, а не начальным значением useState. */
+  React.useEffect(() => {
+    if (!user) return;
+    setName(user.name || "");
+    setCompany(user.company || "");
+    setPhone(user.phone || "");
+    setRegion(user.region || "");
+    setCats(user.executorCategories || []);
+    setSecs(user.specializations || []);
+    setStages(user.stages || []);
+  }, [user]);
+
+  const tgl = (list, set, v) => set(list.includes(v) ? list.filter(x => x !== v) : [...list, v]);
+
+  if (!user) {
+    return (
+      <div className="scroll">
+        <div className="wrap page">
+          <div className="page__h">
+            <span className="lbl">Аккаунт</span>
+            <h1>Вы не вошли</h1>
+            <p>Войдите, чтобы управлять профилем и заявками.</p>
+          </div>
+          <a className="btn btn-ink" href="/auth">Войти <Arr /></a>
+        </div>
+      </div>
+    );
+  }
+
+  /* Роль в старых аккаунтах хранится без категорий — поэтому проверяем и её. */
+  const isExecutor = (user.executorCategories && user.executorCategories.length > 0)
+    || user.role === "designer" || user.role === "expert";
+  const isDesigner = cats.includes("designer");
+
+  const saveProfile = () => {
+    updateUser({ name, company, phone, region });
+    setSaved("profile");
+  };
+  const saveSpec = () => {
+    updateUser({ executorCategories: cats, specializations: secs, stages });
+    setSaved("spec");
+  };
+
   return (
     <div className="scroll">
       <div className="wrap page">
@@ -201,10 +264,67 @@ function Settings() {
             </div>
             <div className="box" style={{ marginBottom: 14 }}>
               <h3>Профиль</h3>
-              <div className="field"><label>Организация</label><input className="inp" defaultValue="ООО «Техносфера»" /></div>
-              <div className="field"><label>Контактное лицо</label><input className="inp" defaultValue="Андрей Кузнецов" /></div>
-              <div className="field" style={{ marginBottom: 0 }}><label>Телефон</label><input className="inp" defaultValue="+7 831 200-14-08" /></div>
+              <div className="field"><label>ФИО / Название</label><input className="inp" value={name} onChange={e => setName(e.target.value)} /></div>
+              <div className="field"><label>Организация</label><input className="inp" value={company} onChange={e => setCompany(e.target.value)} /></div>
+              <div className="field"><label>Телефон</label><input className="inp" value={phone} onChange={e => setPhone(e.target.value)} /></div>
+              {/* Email — идентификатор аккаунта, менять его нельзя: по нему ищется пользователь при входе. */}
+              <div className="field"><label>Email</label><input className="inp" value={user.email} disabled /></div>
+              <div className="field"><label>Регион</label>
+                <select className="inp" value={region} onChange={e => setRegion(e.target.value)}>
+                  <option value="">Не указан</option>
+                  {REGIONS.map(r => <option key={r} value={r}>{r}</option>)}
+                </select>
+              </div>
+              <div className="row g12" style={{ flexWrap: "wrap" }}>
+                <button className="btn btn-ink" onClick={saveProfile}>Сохранить</button>
+                {saved === "profile" && <span className="lbl">Изменения сохранены</span>}
+              </div>
             </div>
+
+            {isExecutor && (
+              <div className="box" style={{ marginBottom: 14 }}>
+                <h3>Специализация</h3>
+                <div className="field"><label>Кем вы работаете</label>
+                  <div className="picks">
+                    {EXECUTOR_CATEGORIES.map(c => (
+                      <button key={c.value} type="button" title={c.hint}
+                        className={"pick" + (cats.includes(c.value) ? " on" : "")}
+                        onClick={() => tgl(cats, setCats, c.value)}>{c.label}</button>
+                    ))}
+                  </div>
+                </div>
+                {/* Разделы и стадии осмысленны только для проектировщика —
+                    у обследователя или 3D-сканирования их нет. */}
+                {isDesigner && (
+                  <>
+                    <div className="field"><label>Разделы проектирования</label>
+                      <div className="picks">
+                        {STAGE_P_CAPITAL.map(s => (
+                          <button key={s.code} type="button" title={s.name}
+                            className={"pick" + (secs.includes(s.code) ? " on" : "")}
+                            onClick={() => tgl(secs, setSecs, s.code)}>{s.code}</button>
+                        ))}
+                      </div>
+                      <p className="mut" style={{ fontSize: 13 }}>По этим разделам вам будут рекомендоваться заявки.</p>
+                    </div>
+                    <div className="field"><label>Стадии</label>
+                      <div className="picks">
+                        {Object.entries(STAGE_LABELS).map(([k, l]) => (
+                          <button key={k} type="button"
+                            className={"pick" + (stages.includes(k) ? " on" : "")}
+                            onClick={() => tgl(stages, setStages, k)}>{l}</button>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
+                <div className="row g12" style={{ flexWrap: "wrap" }}>
+                  <button className="btn btn-ink" onClick={saveSpec}>Сохранить специализацию</button>
+                  {saved === "spec" && <span className="lbl">Изменения сохранены</span>}
+                </div>
+              </div>
+            )}
+
             <div className="box">
               <h3>Уведомления и видимость</h3>
               {ROWS.map(([k, t1, d]) => (
@@ -216,10 +336,10 @@ function Settings() {
             </div>
           </div>
           <div className="box" style={{ display: "grid", gap: 12 }}>
-            <span className="lbl">Нужна помощь?</span>
-            <h3 style={{ margin: 0 }}>Поможем оформить первую заявку</h3>
-            <p>Позвоним, разберём задачу и подскажем состав разделов — бесплатно.</p>
-            <button className="btn btn-ink">Запросить звонок <Arr /></button>
+            <span className="lbl">Аккаунт</span>
+            <h3 style={{ margin: 0 }}>Вы вошли как {user.email}</h3>
+            <p>Выход не удаляет данные — заявки и отклики останутся на месте.</p>
+            <button className="btn btn-line" onClick={logout}>Выйти</button>
           </div>
         </div>
       </div>

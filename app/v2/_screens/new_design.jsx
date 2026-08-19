@@ -48,6 +48,12 @@ const Search = ({ s = 15 }) => (
 const X = () => (<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><path d="M4 4l8 8M12 4l-8 8" /></svg>);
 const Chk = ({ s = 12 }) => (<svg width={s} height={s} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M3 8.5l3.5 3.5L13 4.5" /></svg>);
 
+/* Инициалы по первым буквам слов: «Андрей Кузнецов» → «АК», «ООО «Техносфера»» → «ОТ». */
+const userInitials = s => {
+  const w = (s || "").split(/[^А-Яа-яA-Za-z]+/).filter(Boolean);
+  return (w.length > 1 ? w[0][0] + w[1][0] : (w[0] || "").slice(0, 2)).toUpperCase() || "??";
+};
+
 const Init = ({ n, bg = "#E8E5DD", c = "#14161A", size = 30 }) => (
   <div className="num" style={{ width: size, height: size, flex: `0 0 ${size}px`, borderRadius: 99, background: bg, color: c, display: "grid", placeItems: "center", fontSize: size * 0.36, fontWeight: 500, letterSpacing: 0 }}>{n}</div>
 );
@@ -244,7 +250,7 @@ const WSTEPS = [
     <div className="wc__link">Скачать комплект <Arr s={12} /></div></>) },
 ];
 
-function Home({ go }) {
+function Home({ go, user, isExecutor, canOrder }) {
   const [open, setOpen] = useState(null);
   const [capOpen, setCapOpen] = useState(0);
   return (
@@ -254,10 +260,21 @@ function Home({ go }) {
           <div className="hero__eyebrow"><span className="dot" style={{ background: "var(--acid)" }} /><span className="lbl">Единая платформа ПИР · 2026</span></div>
           <h1>Проектирование<br />без <em>слепых зон</em></h1>
           <p>Заявка, отклики, выбор исполнителя, экспертиза и расчёты — один контур с прозрачными сроками и проверенной репутацией участников.</p>
+          {/* Кнопки зависят от того, кто смотрит: «Зарегистрироваться» нельзя
+              показывать вошедшему, а исполнителю не нужна публикация заявки. */}
           <div className="hero__cta">
-            <button className="btn btn-acid btn-lg" onClick={() => go("new")}>Создать заявку <Arr /></button>
-            <button className="btn btn-ink btn-lg" onClick={() => go("new")}>Зарегистрироваться</button>
-            <button className="btn btn-ghost" onClick={() => go("reqs")}>Смотреть заявки <Arr s={13} /></button>
+            {isExecutor ? (
+              <>
+                <button className="btn btn-acid btn-lg" onClick={() => go("reqs")}>Найти заявки <Arr /></button>
+                <button className="btn btn-ghost" onClick={() => go("set")}>Мой профиль <Arr s={13} /></button>
+              </>
+            ) : (
+              <>
+                {canOrder && <button className="btn btn-acid btn-lg" onClick={() => go("new")}>Создать заявку <Arr /></button>}
+                {!user && <a className="btn btn-ink btn-lg" href="/auth" style={{ textDecoration: "none" }}>Зарегистрироваться</a>}
+                <button className="btn btn-ghost" onClick={() => go("reqs")}>Смотреть заявки <Arr s={13} /></button>
+              </>
+            )}
           </div>
           <div className="hero__note"><span className="dot" style={{ background: "var(--moss)" }} />Публикация заявки бесплатна · отклики только от проверенных: СРО у организаций, НРС и диплом у частных специалистов</div>
         </section>
@@ -314,7 +331,7 @@ function Home({ go }) {
             <div><span className="lbl">Инструменты площадки</span><h2 style={{ marginTop: 8 }}>Что закрывает Функция вместо почты и таблиц</h2></div>
           </div>
           <div className="tools">
-            {CAPS.map((c, i) => (
+            {CAPS.filter(c => !(isExecutor && c.go === "pick")).map((c, i) => (
               <div className={"tool" + (capOpen === i ? " on" : "")} key={c.t} style={{ "--c": c.c }} onClick={() => setCapOpen(i)}>
                 <span className="tool__n">{c.n}</span>
                 <div className="tool__main">
@@ -389,7 +406,8 @@ function Home({ go }) {
             <button className="btn btn-acid btn-sm" onClick={() => go("new")}>Разместить проект <Arr s={13} /></button>
           </div>
           <div className="tiles">
-            {TILES.map(t => (
+            {/* Исполнителю не показываем вход в каталог коллег — он ему не нужен. */}
+            {TILES.filter(t => !(isExecutor && t.go === "pick")).map(t => (
               <button className="tile" key={t.t} onClick={() => go(t.go)}>
                 <div className="tile__top" style={{ "--tb": t.bg }}>{t.v}</div>
                 <div className="tile__b">
@@ -477,12 +495,15 @@ function Home({ go }) {
 }
 
 /* ---------------- заявки ---------------- */
-function Reqs({ go, pubs = [], flash, onFlashOff, openMine, openLive }) {
+function Reqs({ go, pubs = [], flash, onFlashOff, openMine, openLive, user, isExecutor, canOrder }) {
   const [tab, setTab] = useState(pubs.some(r => r.mine) ? "Мои" : "Все");
   const [on, setOn] = useState(["Проектирование"]);
   const toggle = v => setOn(p => p.includes(v) ? p.filter(x => x !== v) : [...p, v]);
   const all = [...pubs, ...REQS];
-  const list = all.filter(r => tab === "Все" ? true : tab === "Мои" ? (r.mine || r.id < 3) : r.resp > 2);
+  /* «Мои» у вошедшего — только его настоящие заявки: у заказчика опубликованные им,
+     у исполнителя — где он назначен или откликался. Демо-подмешивание (r.id < 3)
+     оставлено гостю, иначе вкладка на витрине пустая. */
+  const list = all.filter(r => tab === "Все" ? true : tab === "Мои" ? (user ? r.mine : (r.mine || r.id < 3)) : r.resp > 2);
 
   return (
     <div className="scroll">
@@ -493,7 +514,8 @@ function Reqs({ go, pubs = [], flash, onFlashOff, openMine, openLive }) {
             <h1>Проектирование<br />и экспертиза</h1>
             <p>Задание, бюджет и срок указаны до отклика. Переписка, файлы и оплата по этапам — внутри сделки.</p>
             <div className="row g8" style={{ flexWrap: "wrap" }}>
-              <button className="btn btn-acid btn-sm" onClick={() => go("new")}>Новая заявка</button>
+              {canOrder && <button className="btn btn-acid btn-sm" onClick={() => go("new")}>Новая заявка</button>}
+              {isExecutor && <button className="btn btn-line btn-sm" onClick={() => setTab("Мои")}>Мои текущие заявки</button>}
             </div>
           </div>
           <div className="rhead__r">
@@ -591,27 +613,51 @@ function Reqs({ go, pubs = [], flash, onFlashOff, openMine, openLive }) {
 
 /* ---------------- shell ---------------- */
 function NewApp() {
-  const { user, orders } = useApp();
+  const { user, orders, responses, logout } = useApp();
   const [scr, setScr] = useState("home");
   const [menu, setMenu] = useState(false);
+  const [acc, setAcc] = useState(false);
   const [flash, setFlash] = useState(null);
   const [cur, setCur] = useState(null);
-  const go = k => { setMenu(false); setScr(k); };
+  const go = k => { setMenu(false); setAcc(false); setScr(k); };
+
+  /* Кто смотрит: гость видит витрину целиком, вошедший — интерфейс своей роли.
+     Исполнитель определяется по категориям (модель в.18), legacy-роли — по role. */
+  const cats = user?.executorCategories ?? [];
+  const isExecutor = !!user && (cats.length > 0 || user.role === "designer" || user.role === "expert");
+  const isMaker = user?.role === "manufacturer";
+  const canOrder = !user || user.role === "customer";
+
   /* Реальные заявки из общего хранилища: опубликованные — всем, свои — в любом
      статусе. Демо-витрина REQS остаётся ниже реальных. */
+  const myResp = user ? responses.filter(r => r.designerId === user.id).map(r => r.orderId) : [];
   const liveCards = orders
-    .filter(o => o.status === "published" || (user && o.customerId === user.id))
-    .map(o => orderToCard(o, user?.id));
+    .filter(o => o.status === "published" || (user && (o.customerId === user.id || o.assignedDesignerId === user.id)))
+    .map(o => {
+      const c = orderToCard(o, user?.id);
+      // «Мои» у заказчика — его заявки, у исполнителя — где он назначен или откликался.
+      return isExecutor
+        ? { ...c, mine: o.assignedDesignerId === user.id || myResp.includes(o.id) }
+        : c;
+    });
   const publish = req => { setFlash(req.t); setCur(req); setScr("reqs"); };
   const openMine = req => { if (!req) return; setCur(req); setScr("track"); };
   /* Деталь настоящей заявки (LiveOrder) — по id из хранилища. */
   const [liveId, setLiveId] = useState(null);
   const openLive = id => { setLiveId(id); setScr("live"); };
-  const NAVS = [["home", "Главная"], ["reqs", "Заявки"], ["pick", "Исполнители"], ["cat", "Производители"]];
+  /* Каталог исполнителей нужен заказчику (выбрать подрядчика); самому исполнителю
+     и производителю он не нужен — их интерфейс это заявки и свои работы (замечание
+     Дениса от 20.08). */
+  const NAVS = [
+    ["home", "Главная"],
+    ...(isMaker ? [] : [["reqs", "Заявки"]]),
+    ...(isExecutor || isMaker ? [] : [["pick", "Исполнители"]]),
+    ["cat", "Производители"],
+  ];
   const MORE = [["exp", "Экспертиза", "2 замечания"], ["norm", "Нормативы", ""], ["msg", "Сообщения", "3"], ["an", "Аналитика рынка", ""], ["price", "Тарифы", ""], ["set", "Настройки", ""]];
   const SCR = {
-    home: () => <Home go={go} />,
-    reqs: () => <Reqs go={go} pubs={liveCards} flash={flash} onFlashOff={() => setFlash(null)} openMine={openMine} openLive={openLive} />,
+    home: () => <Home go={go} user={user} isExecutor={isExecutor} canOrder={canOrder} />,
+    reqs: () => <Reqs go={go} pubs={liveCards} flash={flash} onFlashOff={() => setFlash(null)} openMine={openMine} openLive={openLive} user={user} isExecutor={isExecutor} canOrder={canOrder} />,
     live: () => <SCREENS.LiveOrder go={go} orderId={liveId} />,
     track: () => <SCREENS.ReqTrack go={go} req={cur} />,
     detail: () => <SCREENS.OrderDetail go={go} />, order: () => <SCREENS.OrderCard go={go} />, prof: () => <SCREENS.ProProfile go={go} />,
@@ -622,7 +668,7 @@ function NewApp() {
     ai: () => <SCREENS.AiPick />,
   };
   return (
-    <div className="nd" onClick={() => menu && setMenu(false)}>
+    <div className="nd" onClick={() => { if (menu) setMenu(false); if (acc) setAcc(false); }}>
       <header className="topbar">
         <div className="mark" onClick={() => go("home")}><Mark s={28} /><b>Функция</b></div>
         <nav className="nav">
@@ -638,8 +684,28 @@ function NewApp() {
         </div>
         <span className="spacer" />
         <div className="omni"><Search />Поиск по заявкам и нормативам<kbd>⌘K</kbd></div>
-        <button className="btn btn-ink btn-sm" onClick={() => go("new")}>Создать заявку</button>
-        <img className="ava" src={IMG["me.jpg"]} alt="" onClick={() => go("set")} style={{ cursor: "pointer" }} />
+        {canOrder && <button className="btn btn-ink btn-sm" onClick={() => go("new")}>Создать заявку</button>}
+        {/* Шапка показывает, кто вошёл: раньше здесь стояло фото из демо-выгрузки,
+            и гость выглядел как чужой залогиненный профиль (замечание Дениса). */}
+        {user ? (
+          <div className="more">
+            <button className="ava" title={user.name} onClick={e => { e.stopPropagation(); setAcc(!acc); }}
+              style={{ display: "grid", placeItems: "center", padding: 0, background: "var(--ink)", color: "var(--acid)", fontSize: 12.5, cursor: "pointer" }}>
+              {userInitials(user.name)}
+            </button>
+            {acc && (
+              <div className="menu" onClick={e => e.stopPropagation()}>
+                <button onClick={() => go("set")}>Настройки<span>{user.email}</span></button>
+                <button onClick={() => { setAcc(false); logout(); }}>Выйти</button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <>
+            <a className="btn btn-line btn-sm" href="/auth" style={{ textDecoration: "none" }}>Войти</a>
+            <a className="btn btn-ink btn-sm" href="/auth" style={{ textDecoration: "none" }}>Регистрация</a>
+          </>
+        )}
       </header>
       {(SCR[scr] || SCR.home)()}
     </div>
