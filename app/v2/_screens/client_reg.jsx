@@ -34,7 +34,7 @@ const QR = (() => {
   return m;
 })();
 const Qr = ({ size = 190 }) => (
-  <div className="qr" style={{ width: size, height: size }}>
+  <div className="nd qr" style={{ width: size, height: size }}>
     {QR.map((row, y) => row.map((v, x) => v ? <i key={x + "-" + y} style={{ left: (x / 33 * 100) + "%", top: (y / 33 * 100) + "%" }} /> : null))}
   </div>
 );

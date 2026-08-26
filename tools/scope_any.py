@@ -28,6 +28,12 @@ def scope_one(sel, scope):
         return f"{scope}, {scope} *"
     if s.startswith("*:") or s.startswith("::"):
         return f"{scope} {s}"
+    # Корневой класс экрана висит на том же узле, что и обёртка:
+    # <div className="nd cw">. Селектор-потомок «.nd .cw» такой узел не ловит,
+    # нужен «.nd.cw». Какой из двух случаев — по разметке не угадать,
+    # поэтому выдаём оба: лишний селектор безвреден, отсутствующий ломает вид.
+    if s.startswith("."):
+        return f"{scope} {s}, {scope}{s}"
     return f"{scope} {s}"
 
 
