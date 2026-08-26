@@ -2,48 +2,44 @@
 
 /* Точка входа варианта Б.
 
-   Модули ниже импортируются ради побочного эффекта: каждый при загрузке
-   кладёт свои экраны в реестр SCREENS (это замена регистрации в window,
-   которая была в исходниках Cloud Design).
+   Модули импортируются ради побочного эффекта: каждый при загрузке кладёт
+   свои экраны в реестр SCREENS. Порядок здесь НЕ произвольный — он в точности
+   повторяет порядок скриптов в прототипе Cloud Design (index.html выгрузки).
 
-   request_form идёт первым не для порядка: мастер заявки и каталоги читают
-   из него данные на верхнем уровне модуля, то есть в момент импорта. Если
-   он загрузится позже, они получат undefined. Остальные обращаются друг
-   к другу только во время рендера, поэтому их порядок не важен.
-
-   Навигация внутри Б своя, на useState в NewApp, поэтому весь вариант
-   живёт на одном маршруте /v2. */
+   Это важно по двум причинам: request_form читают на верхнем уровне модуля,
+   то есть в момент импорта; а несколько модулей регистрируют экраны с
+   одинаковыми именами (например ProProfile есть и в pro_profile, и в
+   new_design_detail) — кто позже, тот и побеждает. Переставишь строки —
+   поедет вид. */
 
 import { SCREENS } from './_screens/registry';
 
 import './_screens/request_form';
-
-import './_screens/side_rays';
-import './_screens/specular_btn';
 import './_screens/notify_block';
-import './_screens/auth_panel';
-import './_screens/client_reg';
-import './_screens/client_intro';
-import './_screens/client_work';
-import './_screens/client_profile';
-import './_screens/pro_home';
-import './_screens/pro_work';
-
-import './_screens/new_design';
-import './_screens/new_design_scrub';
-import './_screens/new_design_pad';
-import './_screens/new_design_detail';
-/* pro_profile идёт СТРОГО после detail: оба регистрируют ProProfile,
-   и побеждает тот, кто загрузился последним. Нужен новый — из кабинетов. */
 import './_screens/pro_profile';
-import './_screens/new_design_order';
+import './_screens/client_profile';
+import './_screens/new_design_pad';
 import './_screens/new_design_dirs';
-import './_screens/new_design_solo';
+import './_screens/new_design_detail';
+import './_screens/new_design_extra';
 import './_screens/new_design_flow';
+import './_screens/new_design_more';
+import './_screens/new_design_scrub';
+import './_screens/new_design_solo';
+import './_screens/new_design_order';
 import './_screens/new_design_wizard';
 import './_screens/live_order';
-import './_screens/new_design_more';
-import './_screens/new_design_extra';
+import './_screens/new_design_client';
+import './_screens/new_design_land';
+import './_screens/new_design_land2';
+import './_screens/new_design_land3';
+import './_screens/new_design_signup';
+import './_screens/client_reg';
+import './_screens/auth_panel';
+import './_screens/client_intro';
+import './_screens/client_work';
+import './_screens/pro_work';
+import './_screens/new_design';
 
 export default function V2Page() {
   const NewApp = SCREENS.NewApp;

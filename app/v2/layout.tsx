@@ -3,13 +3,17 @@ import { Unbounded, Golos_Text, JetBrains_Mono } from 'next/font/google';
 import './v2.css';
 import './fonts.css';
 import './auth_panel.css';
+import './stages_flow.css';
+import './land.css';
+import './land2.css';
+import './land3.css';
+import './signup.css';
 import './client_intro.css';
-import './client_profile.css';
 import './client_work.css';
+import './pro_work.css';
 import './pro_home.css';
 import './pro_profile.css';
-import './pro_work.css';
-import './stages_flow.css';
+import './client_profile.css';
 import './work_extra.css';
 
 /* Вариант Б — второй дизайн платформы, живёт параллельно с основным.
