@@ -6,7 +6,7 @@
    форма addResponse для проектировщиков). Вкладки Коммуникации/Замечания/Файлы —
    демо-заглушки (нет бэкенда). Дизайн заскоуплен под .fx. */
 
-import { useState, Suspense } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useApp } from '@/lib/store';
 import { Icon } from '../../../_orders/icons';
@@ -45,6 +45,135 @@ const DEMO_FILES = [
 const initials = (s) => (s || '').replace(/[^А-ЯA-Zа-яa-z]/g, '').slice(0, 2).toUpperCase() || 'ЗК';
 const isValidBudget = (v) => { const n = parseInt(String(v).replace(/\D/g, ''), 10); return !!n && n > 0; };
 
+/* ====== Сравнение откликов (Cloud Design «Функция (9)») ======
+   Реальная модель отклика бедная (имя, компания, бюджет, срок), поэтому
+   недостающие параметры сравнения выводятся детерминированно из id/имени —
+   стабильно и правдоподобно. На бою заводятся на реальные модели профиля/сделок. */
+const hashStr = (s) => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; } return h >>> 0; };
+const rngFrom = (seed) => { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; };
+const parseRub = (s) => Number(String(s || '').replace(/[^\d]/g, '')) || 0;
+const daysUntil = (iso) => { if (!iso) return 0; const d = Math.round((new Date(iso).getTime() - Date.now()) / 86400000); return d > 0 ? d : 0; };
+
+function cmModel(r, orderSections) {
+  const rnd = rngFrom(hashStr(r.id + '|' + r.designerName));
+  const pick = (min, max) => min + Math.floor(rnd() * (max - min + 1));
+  const trust = 82 + pick(0, 16);
+  const level = trust >= 92 ? 'Эталон' : trust >= 85 ? 'Надёжный' : 'Проверенный';
+  const total = orderSections?.length || 0;
+  const covCount = total ? Math.max(1, Math.round(total * (0.55 + rnd() * 0.45))) : 0;
+  const codes = (orderSections || []).slice(0, covCount);
+  const missCodes = (orderSections || []).slice(covCount);
+  const priceNum = parseRub(r.proposedBudget);
+  const termDays = daysUntil(r.proposedDeadline) || (30 + pick(0, 60));
+  return {
+    id: r.id, r, name: r.designerName, ini: initials(r.designerName), spec: r.designerCompany || 'Проектировщик',
+    vf: true, trust, level,
+    priceNum, price: r.proposedBudget || 'По договорённости',
+    termDays,
+    total, covCount, codes, missCodes,
+    rating: (4.2 + pick(0, 8) / 10).toFixed(1), reviews: 8 + pick(0, 120),
+    projects: 5 + pick(0, 60), availFree: pick(0, 10) > 3, respHours: 1 + pick(0, 11),
+    escrow: pick(0, 10) > 2, bim: pick(0, 10) > 3,
+  };
+}
+
+const CMP_ROWS = [
+  { k: 'trust', label: 'Индекс доверия', get: (m) => m.trust, best: 'max', fmt: (m) => <span className="cmp__val">{m.trust}<small>/100</small></span> },
+  { k: 'price', label: 'Стоимость', hint: 'мин — лучшее', get: (m) => m.priceNum || Infinity, best: 'min', fmt: (m) => <span className="cmp__val">{m.price}</span> },
+  { k: 'term', label: 'Срок', hint: 'мин — лучшее', get: (m) => m.termDays, best: 'min', fmt: (m) => <span className="cmp__val">{m.termDays}<small> дн.</small></span> },
+  { k: 'cov', label: 'Покрытие разделов', get: (m) => m.covCount, best: 'max', fmt: (m) => (
+    <>
+      <span className="cmp__val">{m.covCount}<small>/{m.total}</small></span>
+      {(m.codes.length + m.missCodes.length) > 0 && (
+        <span className="cmp__chips">
+          {m.codes.map((c) => <span key={c} className="cmp__chip">{c}</span>)}
+          {m.missCodes.map((c) => <span key={c} className="cmp__chip cmp__chip--miss">{c}</span>)}
+        </span>
+      )}
+    </>
+  ) },
+  { k: 'rating', label: 'Отзывы', get: (m) => +m.rating, best: 'max', fmt: (m) => <><span className="cmp__val">{m.rating}<small>/5</small></span><span className="cmp__sub">{m.reviews} отзывов</span></> },
+  { k: 'proj', label: 'Опыт на платформе', get: (m) => m.projects, best: 'max', fmt: (m) => <span className="cmp__val">{m.projects}<small> проектов</small></span> },
+  { k: 'avail', label: 'Доступность', get: (m) => (m.availFree ? 1 : 0), best: 'max', fmt: (m) => m.availFree ? <span className="cmp__yes"><Icon name="check" size={15} />Свободен</span> : <span className="cmp__no">Занят</span> },
+  { k: 'resp', label: 'Время ответа', hint: 'мин — лучшее', get: (m) => m.respHours, best: 'min', fmt: (m) => <span className="cmp__val">{m.respHours}<small> ч</small></span> },
+  { k: 'escrow', label: 'Безопасная сделка', get: (m) => (m.escrow ? 1 : 0), best: 'max', fmt: (m) => m.escrow ? <span className="cmp__yes"><Icon name="check" size={15} />Да</span> : <span className="cmp__no">Нет</span> },
+  { k: 'bim', label: 'BIM / ТИМ', get: (m) => (m.bim ? 1 : 0), best: 'max', fmt: (m) => m.bim ? <span className="cmp__yes"><Icon name="check" size={15} />Да</span> : <span className="cmp__no">Нет</span> },
+];
+
+function CompareOverlay({ models, onClose, onChoose, onProfile }) {
+  useEffect(() => {
+    const esc = (e) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', esc);
+    return () => document.removeEventListener('keydown', esc);
+  }, [onClose]);
+  const cols = `168px repeat(${models.length}, minmax(190px, 1fr))`;
+  return (
+    <div className="cmp" onClick={onClose}>
+      <div className="cmp__panel" onClick={(e) => e.stopPropagation()}>
+        <div className="cmp__head">
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h2>Сравнение откликов</h2>
+            <p>Выберите исполнителя по параметрам — золотом отмечено лучшее значение в строке.</p>
+          </div>
+          <button className="cmp__close" onClick={onClose} aria-label="Закрыть"><Icon name="x" size={18} /></button>
+        </div>
+        <div className="cmp__scroll">
+          <div className="cmp__grid" style={{ gridTemplateColumns: cols }}>
+            {/* header */}
+            <div className="cmp__row">
+              <div className="cmp__cell cmp__cell--lbl is-sticky-top" />
+              {models.map((m) => (
+                <div key={m.id} className="cmp__cell cmp__cell--head is-sticky-top">
+                  <div className="cmp__cand">
+                    <Avatar text={m.ini} size={40} />
+                    <div style={{ minWidth: 0 }}>
+                      <b>{m.name}</b>
+                      <div><span>{m.spec}</span></div>
+                      <span className={'cmp__lvl' + (m.vf ? '' : ' cmp__lvl--pending')}>{m.vf && <Icon name="checkCircle" size={12} />}{m.level}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {/* metrics */}
+            {CMP_ROWS.map((row) => {
+              const vals = models.map(row.get);
+              const best = row.best === 'max' ? Math.max(...vals) : Math.min(...vals);
+              const hasVar = new Set(vals).size > 1;
+              return (
+                <div key={row.k} className="cmp__row">
+                  <div className="cmp__cell cmp__cell--lbl">{row.label}{row.hint && <span className="cmp__hint">{row.hint}</span>}</div>
+                  {models.map((m) => {
+                    const isBest = hasVar && row.get(m) === best;
+                    return (
+                      <div key={m.id} className={'cmp__cell' + (isBest ? ' is-best' : '')}>
+                        {row.fmt(m)}
+                        {isBest && <span className="cmp__best"><Icon name="star" size={11} />лучшее</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
+            {/* footer */}
+            <div className="cmp__row">
+              <div className="cmp__cell cmp__cell--lbl" />
+              {models.map((m) => (
+                <div key={m.id} className="cmp__cell cmp__cell--foot">
+                  <div className="cmp__foot-btns">
+                    <button className="btn btn-primary btn-sm" onClick={() => onChoose(m.r)}>Выбрать</button>
+                    <button className="btn btn-ghost btn-sm" onClick={() => onProfile(m.r)}>Профиль</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function OrderDetailContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -53,10 +182,15 @@ function OrderDetailContent() {
   const [responseText, setResponseText] = useState('');
   const [propBudget, setPropBudget] = useState('');
   const [propDeadline, setPropDeadline] = useState('');
+  const [selected, setSelected] = useState<string[]>([]);   // id откликов для сравнения (до 4)
+  const [compareOpen, setCompareOpen] = useState(false);
+  const toggleSel = (id: string) =>
+    setSelected((p) => (p.includes(id) ? p.filter((x) => x !== id) : p.length >= 4 ? p : [...p, id]));
 
   const orderId = searchParams.get('id');
   const o = orderId ? getOrderById(orderId) : null;
   const responses = o ? getResponsesForOrder(o.id) : [];
+  const selResponses = responses.filter((r) => selected.includes(r.id));
   const isOwner = !!(user && o && user.id === o.customerId);
   const isDesigner = user?.role === 'designer';
   const alreadyResponded = !!(o && hasResponded(o.id));
@@ -115,20 +249,31 @@ function OrderDetailContent() {
           </div>
         )}
 
-        {responses.map((r) => (
-          <div key={r.id} className="card">
+        {responses.map((r) => {
+          const cm = cmModel(r, o.sections);
+          const isSel = selected.includes(r.id);
+          return (
+          <div key={r.id} className={'card rcard' + (isSel ? ' is-sel' : '')}>
             <div className="row gap12" style={{ marginBottom: 12 }}>
               <Avatar text={initials(r.designerName)} size={44} />
-              <div className="grow">
-                <div className="row between"><div style={{ fontWeight: 700, fontSize: 15 }}>{r.designerName}</div></div>
+              <div className="grow" style={{ minWidth: 0 }}>
+                <div className="row gap8" style={{ alignItems: 'center' }}>
+                  <span style={{ fontWeight: 700, fontSize: 15 }}>{r.designerName}</span>
+                  <span className="tbadge" title={`Индекс доверия ${cm.trust} · ${cm.level}`}><Icon name="checkCircle" size={13} />{cm.trust}</span>
+                </div>
                 <div className="dim" style={{ fontSize: 13 }}>{r.designerCompany || 'Проектировщик'}</div>
               </div>
+              <button type="button" className={'rsel' + (isSel ? ' is-on' : '')} onClick={() => toggleSel(r.id)} title="Добавить к сравнению (до 4)">
+                <span className="rsel__box">{isSel && <Icon name="check" size={13} />}</span>
+                {isSel ? 'В сравнении' : 'Сравнить'}
+              </button>
             </div>
             <p className="muted" style={{ margin: '0 0 14px', fontSize: 13.5, lineHeight: 1.55 }}>{r.message}</p>
             <div className="row between gap16 wrap">
               <span className="row gap16">
                 {r.proposedBudget && <span className="price row gap6"><Icon name="wallet" size={16} style={{ color: 'var(--accent-2)' }} />{r.proposedBudget}</span>}
                 {r.proposedDeadline && <span className="row gap6 dim" style={{ fontSize: 13 }}><Icon name="clock" size={14} />{formatDeadline(r.proposedDeadline)}</span>}
+                {o.sections?.length > 0 && <span className="rcov"><Icon name="layers" size={14} /><b>{cm.covCount}</b>/{cm.total} разделов</span>}
               </span>
               <div className="row gap8">
                 {MOCK_DESIGNERS.some((d) => d.id === r.designerId) && (
@@ -144,7 +289,20 @@ function OrderDetailContent() {
               </div>
             </div>
           </div>
-        ))}
+          );
+        })}
+
+        {selResponses.length >= 1 && (
+          <div className="cmpbar">
+            <div className="cmpbar__avas">
+              {selResponses.slice(0, 4).map((r) => <Avatar key={r.id} text={initials(r.designerName)} size={30} />)}
+            </div>
+            <div className="cmpbar__t"><b>{selResponses.length} в сравнении</b><span>можно до 4 откликов</span></div>
+            <div className="cmpbar__spacer" />
+            <button className="cmpbar__clear" onClick={() => setSelected([])}>Сбросить</button>
+            <button className="btn btn-primary btn-sm" disabled={selResponses.length < 2} style={{ opacity: selResponses.length < 2 ? 0.5 : 1 }} onClick={() => setCompareOpen(true)}>Сравнить · {selResponses.length}</button>
+          </div>
+        )}
 
         {isDesigner && !isOwner && (
           alreadyResponded ? (
@@ -258,10 +416,10 @@ function OrderDetailContent() {
             {TIMELINE_LABELS.map((label, i) => {
               const done = i < timelineDone(o);
               return (
-                <div key={label} className={'tl' + (done ? ' tl--done' : '')}>
-                  <div className="tl__dot">{done && <Icon name="check" size={13} />}</div>
-                  {i < TIMELINE_LABELS.length - 1 && <div className="tl__line" />}
-                  <div className="tl__label">{label}</div>
+                <div key={label} className={'tline' + (done ? ' tline--done' : '')}>
+                  <div className="tline__dot">{done && <Icon name="check" size={13} />}</div>
+                  {i < TIMELINE_LABELS.length - 1 && <div className="tline__line" />}
+                  <div className="tline__label">{label}</div>
                 </div>
               );
             })}
@@ -272,6 +430,7 @@ function OrderDetailContent() {
   };
 
   return (
+    <>
     <div className="fx animate-in">
       <div className="breadcrumb">
         <a className="link" onClick={() => router.push('/orders')}>Заявки</a>
@@ -379,6 +538,18 @@ function OrderDetailContent() {
         </div>
       </div>
     </div>
+
+    {compareOpen && selResponses.length >= 2 && (
+      <div className="fx">
+        <CompareOverlay
+          models={selResponses.map((r) => cmModel(r, o.sections))}
+          onClose={() => setCompareOpen(false)}
+          onChoose={(r) => { if (isOwner && !o.assignedDesignerId) handleSelectExecutor(r); setCompareOpen(false); }}
+          onProfile={() => router.push('/designers')}
+        />
+      </div>
+    )}
+    </>
   );
 }
 

@@ -30,6 +30,7 @@ const GROUPS: { title: string; items: NavItem[] }[] = [
     { key: 'analytics', label: 'Аналитика', href: '/analytics', icon: 'chart', c: 'var(--blue)' },
   ] },
   { title: 'Аккаунт', items: [
+    { key: 'trust', label: 'Доверие', href: '/trust', icon: 'shield', c: 'var(--green)' },
     { key: 'pricing', label: 'Тарифы', href: '/pricing', icon: 'wallet', c: 'var(--amber)' },
     { key: 'settings', label: 'Настройки', href: '/settings', icon: 'sliders', c: 'var(--text-dim)' },
   ] },

@@ -56,6 +56,31 @@ const STAGES = [
 const SCALES = [['single', 'Один специалист'], ['team', 'Команда'], ['org', 'Организация']];
 const SCALE_SHORT = { single: 'Один специалист', team: 'Команда', org: 'Организация' };
 
+// ====== Помощник создания заявки (Cloud Design «Функция (9)») ======
+// Рекомендуемый состав разделов ПД по типу объекта — ориентир по ПП РФ №87.
+// Применяется пересечением с реально доступными для текущей стадии кодами.
+const REC_SECTIONS = {
+  commercial:  ['ПЗ', 'ПЗУ', 'АР', 'КР', 'ЭОМ', 'ВК', 'ОВиК', 'СС', 'ПОС', 'ООС', 'ПБ', 'СМ'],
+  residential: ['ПЗ', 'ПЗУ', 'АР', 'КР', 'ЭОМ', 'ВК', 'ОВиК', 'СС', 'ПОС', 'ООС', 'ПБ', 'ОДИ', 'СМ'],
+  industrial:  ['ПЗ', 'ПЗУ', 'АР', 'КР', 'ЭОМ', 'ВК', 'ОВиК', 'ТХ', 'ПОС', 'ООС', 'ПБ', 'ТБЭ', 'ГОЧС', 'СМ'],
+  linear:      ['ПЗ', 'ППО', 'ТКР', 'ИЛО', 'ПОС', 'ООС', 'ПБ', 'СМ'],
+  buildings:   ['ПЗ', 'ПЗУ', 'АР', 'КР', 'ЭОМ', 'ВК', 'ОВиК', 'СС', 'ПОС', 'ООС', 'ПБ', 'ОДИ', 'СМ'],
+  private:     ['ПЗ', 'АР', 'КР', 'ЭОМ', 'ВК', 'ОВиК'],
+};
+// Ориентир рыночного бюджета: тип → [низ, медиана, верх, число похожих заявок за 12 мес].
+// Числа иллюстративные — на бою считаются из закрытых заявок платформы.
+const BENCH = {
+  commercial:  [4_500_000, 9_000_000, 18_000_000, 214],
+  residential: [6_000_000, 12_000_000, 26_000_000, 386],
+  industrial:  [8_000_000, 17_000_000, 38_000_000, 143],
+  linear:      [3_000_000, 7_500_000, 19_000_000, 98],
+  buildings:   [5_000_000, 11_000_000, 24_000_000, 172],
+  private:     [350_000, 750_000, 1_800_000, 512],
+};
+const benchMoney = (n) => n >= 1_000_000
+  ? (n / 1_000_000).toLocaleString('ru-RU', { maximumFractionDigits: 1 }) + ' млн ₽'
+  : Math.round(n / 1000) + ' тыс ₽';
+
 /* ====== Нативный датапикер (в теме приложения) ====== */
 const RU_MONTHS = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
 const RU_MON_SHORT = ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек'];
@@ -230,6 +255,16 @@ export default function NewOrderPage() {
   const toggle = (code) => setSel((p) => (p.includes(code) ? p.filter((x) => x !== code) : [...p, code]));
   const scaleLabel = SCALE_SHORT[scale] || 'Команда';
 
+  // Помощник: рекомендуемый состав разделов (пересечение с доступными) и чего не хватает.
+  const availCodes = flatSections.map((s) => s.code);
+  const recAvail = (REC_SECTIONS[objectType] || []).filter((c) => availCodes.includes(c));
+  const missing = recAvail.filter((c) => !sel.includes(c));
+  const applyRec = () => setSel((p) => [...new Set([...p, ...recAvail])]);
+  const onlyRec = () => setSel(recAvail);
+  // Ориентир бюджета
+  const bench = BENCH[objectType];
+  const midPct = bench ? Math.round(((bench[1] - bench[0]) / (bench[2] - bench[0])) * 100) : 50;
+
   // Счётчик готовности 0..5 (BUG-011): пустая форма = 0/5, финальный шаг = 5/5.
   const filled = [
     !!objectType && !!title.trim(),                              // 1. Тип объекта
@@ -385,11 +420,29 @@ export default function NewOrderPage() {
               <span className="dim" style={{ fontSize: 13 }}>Выбрано: {sel.length} из {flatSections.length}</span>
             </div>
             <p className="muted" style={{ margin: 0, fontSize: 13.5 }}>Отметьте разделы документации под стадию «{STAGE_LABELS[stage] || stage}» и тип «{TYPE_LABEL[objectType]}».</p>
+
+            {recAvail.length > 0 && (
+              <div className="asst">
+                <div className="asst__ic"><Icon name="spark" size={20} /></div>
+                <div className="asst__b">
+                  <div className="asst__lbl"><Icon name="spark" size={12} /> Помощник</div>
+                  <p className="asst__t">Для «<b>{TYPE_LABEL[objectType]}</b>» на стадии «{STAGE_LABELS[stage] || stage}» обычно нужно <b>{recAvail.length} разделов</b> по ПП РФ №87.{missing.length > 0 ? <> Пока не хватает <b>{missing.length}</b>:</> : ' Все рекомендованные разделы уже добавлены.'}</p>
+                  {missing.length > 0 && <div className="chips" style={{ marginTop: 10 }}>{missing.map((c) => <span key={c} className="chip chip-code">{c}</span>)}</div>}
+                  <div className="asst__actions">
+                    <button type="button" className="btn btn-primary btn-sm" onClick={applyRec} disabled={missing.length === 0} style={{ opacity: missing.length === 0 ? 0.5 : 1 }}>Применить рекомендуемый состав</button>
+                    <button type="button" className="btn btn-ghost btn-sm" onClick={onlyRec}>Только рекомендуемые</button>
+                    <span className="asst__meta">Ориентир по Постановлению Правительства РФ №87</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="secpick secpick--amber">
               {flatSections.map((s) => (
                 <button key={s.code} type="button" className={'secpick__item' + (sel.includes(s.code) ? ' is-sel' : '')} onClick={() => toggle(s.code)}>
                   <span className="secpick__code">{s.code}</span>
                   <span className="secpick__name">{s.name}</span>
+                  {recAvail.includes(s.code) && <span className="secpick__rec">рек.</span>}
                   <span className="secpick__check"><Icon name="check" size={13} /></span>
                 </button>
               ))}
@@ -404,6 +457,30 @@ export default function NewOrderPage() {
             </div>
             <div className="field"><label>Срок выполнения</label><DateField value={due} onChange={setDue} placeholder="Выберите дату" /></div>
             <label className="row gap10" style={{ fontSize: 14, cursor: 'pointer' }}><input type="checkbox" checked={byOffer} onChange={(e) => setByOffer(e.target.checked)} /> Ждём предложений по цене</label>
+
+            {bench && (
+              <div className="asst">
+                <div className="asst__ic"><Icon name="chart" size={20} /></div>
+                <div className="asst__b">
+                  <div className="asst__lbl"><Icon name="spark" size={12} /> Помощник</div>
+                  <p className="asst__t">Ориентир рыночного бюджета для «<b>{TYPE_LABEL[objectType]}</b>» — медиана <b>{benchMoney(bench[1])}</b>.</p>
+                  <div className="bench">
+                    <div className="bench__scale">
+                      <span className="bench__mid" style={{ left: midPct + '%' }} />
+                      <span className="bench__midlbl" style={{ left: midPct + '%' }}>{benchMoney(bench[1])}</span>
+                    </div>
+                    <div className="bench__ends">
+                      <div><span>дешевле</span><b>{benchMoney(bench[0])}</b></div>
+                      <div style={{ textAlign: 'right' }}><span>дороже</span><b>{benchMoney(bench[2])}</b></div>
+                    </div>
+                  </div>
+                  <div className="asst__actions">
+                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setByOffer(false); setBudget(String(bench[1])); }}>Подставить медиану</button>
+                    <span className="asst__meta">по {bench[3]} похожим заявкам за 12 мес</span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>}
 
           {step === 4 && <div className="col gap18 fade-in">

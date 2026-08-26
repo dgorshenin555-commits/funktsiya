@@ -267,7 +267,16 @@ function FilterPills({ regionFilter, setRegionFilter, sectionFilter, setSectionF
   );
 }
 
+// Значок индекса доверия (Cloud Design «Функция (9)»): верификация — по наличию СРО,
+// индекс — детерминированно из рейтинга и объёма портфолио (до появления реального фактора).
+function trustOf(d: any) {
+  const vf = !!d.sroNumber;
+  const trust = d.trust ?? Math.min(99, Math.round(d.rating * 18 + Math.min(d.projectsCount || 0, 40) / 4));
+  return { vf, trust };
+}
+
 function PersonCard({ designer, onSelect, onProfile, onShortlist, inShortlist, projectMode }: any) {
+  const { vf, trust } = trustOf(designer);
   return (
     <div
       className={'card card-hover personcard' + (designer.featured ? ' is-featured' : '')}
@@ -276,7 +285,12 @@ function PersonCard({ designer, onSelect, onProfile, onShortlist, inShortlist, p
       <div className="row gap12" style={{ marginBottom: 14 }}>
         <PhotoAva designer={designer} dot={designer.type === 'person'} />
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontWeight: 700, fontSize: 15 }}>{designer.name}</div>
+          <div className="row gap8" style={{ alignItems: 'center' }}>
+            <span style={{ fontWeight: 700, fontSize: 15, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{designer.name}</span>
+            {vf
+              ? <span className="tbadge" title={`Индекс доверия ${trust} · Надёжный`}><Icon name="checkCircle" size={13} />{trust}</span>
+              : <span className="tbadge tbadge--pending" title="Профиль не подтверждён"><Icon name="clock" size={12} />не подтв.</span>}
+          </div>
           <div className="chips" style={{ marginTop: 6 }}>
             {uniqueSections(designer.sections).map((c) => (
               <span key={c} className="chip chip-code">
