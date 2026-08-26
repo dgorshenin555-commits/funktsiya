@@ -52,12 +52,6 @@ const Search = ({ s = 15 }) => (
 const X = () => (<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><path d="M4 4l8 8M12 4l-8 8" /></svg>);
 const Chk = ({ s = 12 }) => (<svg width={s} height={s} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M3 8.5l3.5 3.5L13 4.5" /></svg>);
 
-/* Инициалы по первым буквам слов: «Андрей Кузнецов» → «АК», «ООО «Техносфера»» → «ОТ». */
-const userInitials = s => {
-  const w = (s || "").split(/[^А-Яа-яA-Za-z]+/).filter(Boolean);
-  return (w.length > 1 ? w[0][0] + w[1][0] : (w[0] || "").slice(0, 2)).toUpperCase() || "??";
-};
-
 const Init = ({ n, bg = "#E8E5DD", c = "#14161A", size = 30 }) => (
   <div className="num" style={{ width: size, height: size, flex: `0 0 ${size}px`, borderRadius: 99, background: bg, color: c, display: "grid", placeItems: "center", fontSize: size * 0.36, fontWeight: 500, letterSpacing: 0 }}>{n}</div>
 );
@@ -169,24 +163,11 @@ const budRange = b => {
   return f(lo) + "–" + f(hi) + " млн ₽";
 };
 
-/* Фильтры собираются из самих заявок, а не из выдуманных чисел: иначе счётчики
-   врут, а галочки ничего не меняют (замечание Дениса «фильтр не работает»).
-   Внутри группы условия складываются по ИЛИ, между группами — по И. */
-const FILTER_GROUPS = [
-  { g: "Тип заявки", val: r => [r.kind].filter(Boolean) },
-  { g: "Стадия", val: r => [r.stage].filter(Boolean) },
-  { g: "Раздел", val: r => r.secs || [] },
-];
-
-function buildFilters(list) {
-  return FILTER_GROUPS.map(({ g, val }) => {
-    const count = new Map();
-    list.forEach(r => val(r).forEach(v => count.set(v, (count.get(v) || 0) + 1)));
-    const opts = [...count.entries()].sort((a, b) => b[1] - a[1] || String(a[0]).localeCompare(String(b[0])));
-    // Разделов много — показываем самые частые, иначе рельс уезжает на два экрана.
-    return { g, val, opts: g === "Раздел" ? opts.slice(0, 10) : opts };
-  });
-}
+const FILTERS = {
+  "Тип заявки": [["Проектирование", 96], ["Экспертиза", 31], ["Обследование", 21]],
+  "Стадия": [["Проектная (П)", 58], ["Рабочая (Р)", 44], ["Обоснование инвестиций", 12]],
+  "Раздел": [["АР", 74], ["КЖ / КМ", 66], ["ОВ / ВК", 51], ["ЭОМ / СС", 47]],
+};
 
 /* ---------------- главная ---------------- */
 /* ---------------- рельс шагов (magnify scrubber) ---------------- */
@@ -350,7 +331,7 @@ const GATES = [
   },
 ];
 
-function Home({ go, user, isExecutor, canOrder, goPro, goCli, regCli, regPro }) {
+function Home({ go, goPro, goCli, regCli, regPro }) {
   const [open, setOpen] = useState(null);
   const [capOpen, setCapOpen] = useState(0);
   return (
@@ -360,49 +341,29 @@ function Home({ go, user, isExecutor, canOrder, goPro, goCli, regCli, regPro }) 
           <div className="hero__eyebrow"><span className="dot" style={{ background: "var(--acid)" }} /><span className="lbl">Единая платформа ПИР · 2026</span></div>
           <h1>Проектирование<br />без <em>слепых зон</em></h1>
           <p>Заявка, отклики, выбор исполнителя, экспертиза и расчёты — один контур с прозрачными сроками и проверенной репутацией участников.</p>
-          {/* Гостю — две двери: заказчику и исполнителю. Вошедшему они не нужны,
-              он видит свои действия: исполнитель ищет заявки, заказчик публикует. */}
-          {!user ? (
-            <>
-  <div className="gate">
-              {GATES.map(g => (
-                <div className={"gate__c gate__c--" + g.k} key={g.k}>
-                  <span className="gate__v">{g.v}</span>
-                  <h3>{g.t}</h3>
-                  <div className="gate__li">
-                    {g.li.map(x => <span key={x}><i><Chk s={10} /></i>{x}</span>)}
-                  </div>
-                  <div className="gate__act">
-                    <button className={"btn btn-lg " + (g.k === "cli" ? "btn-ink" : "btn-acid")} onClick={g.k === "cli" ? regCli : regPro}>{g.cta} <Arr /></button>
-                    <button className="gate__sec" onClick={() => g.k === "cli" ? go(g.secGo) : go("reqs")}>{g.sec} <Arr s={13} /></button>
-                  </div>
+          <div className="gate">
+            {GATES.map(g => (
+              <div className={"gate__c gate__c--" + g.k} key={g.k}>
+                <span className="gate__v">{g.v}</span>
+                <h3>{g.t}</h3>
+                <div className="gate__li">
+                  {g.li.map(x => <span key={x}><i><Chk s={10} /></i>{x}</span>)}
                 </div>
-              ))}
-            </div>
-            <div className="peek__f">
-              <p>Заявки и профили исполнителей открыты всем. Аккаунт нужен только чтобы откликнуться или опубликовать свою заявку.</p>
-              <div className="row g8" style={{ flexWrap: "wrap" }}>
-                <button className="btn btn-ink btn-sm" onClick={regCli}>Я заказчик</button>
-                <button className="btn btn-acid btn-sm" onClick={regPro}>Я исполнитель</button>
+                <div className="gate__act">
+                  <button className={"btn btn-lg " + (g.k === "cli" ? "btn-ink" : "btn-acid")} onClick={g.k === "cli" ? regCli : regPro}>{g.cta} <Arr /></button>
+                  <button className="gate__sec" onClick={() => g.k === "cli" ? go(g.secGo) : go("reqs")}>{g.sec} <Arr s={13} /></button>
+                </div>
               </div>
+            ))}
+          </div>
+          <div className="peek__f">
+            <p>Заявки и профили исполнителей открыты всем. Аккаунт нужен только чтобы откликнуться или опубликовать свою заявку.</p>
+            <div className="row g8" style={{ flexWrap: "wrap" }}>
+              <button className="btn btn-ink btn-sm" onClick={regCli}>Я заказчик</button>
+              <button className="btn btn-acid btn-sm" onClick={regPro}>Я исполнитель</button>
             </div>
-            </>
-          ) : (
-            <div className="hero__cta">
-              {isExecutor ? (
-                <>
-                  <button className="btn btn-acid btn-lg" onClick={() => go("reqs")}>Найти заявки <Arr /></button>
-                  <button className="btn btn-ghost" onClick={() => go("set")}>Мой профиль <Arr s={13} /></button>
-                </>
-              ) : (
-                <>
-                  {canOrder && <button className="btn btn-acid btn-lg" onClick={() => goCli ? goCli() : go("new")}>Создать заявку <Arr /></button>}
-                  <button className="btn btn-ghost" onClick={() => go("reqs")}>Смотреть заявки <Arr s={13} /></button>
-                </>
-              )}
-            </div>
-          )}
-<div className="hero__note">
+          </div>
+          <div className="hero__note">
             <span className="dot" style={{ background: "var(--moss)" }} />Регистрация — один номер телефона, без пароля. Смотреть заявки и исполнителей можно без аккаунта.
             <button className="gate__in" onClick={() => go("set")}>Уже есть аккаунт — войти</button>
           </div>
@@ -419,16 +380,11 @@ function Home({ go, user, isExecutor, canOrder, goPro, goCli, regCli, regPro }) 
       </div>
 
       <div className="wrap">
-        {/* Блок «Заказчику / Исполнителю» убран: его работу теперь делают
-            две двери в hero, а здесь дизайн показывает витрину заявок гостю. */}
         <section className="peek">
           <div className="sec-h">
             <div><span className="lbl">Витрина без регистрации</span><h2 style={{ marginTop: 8 }}>Что на платформе прямо сейчас</h2></div>
             <button className="btn btn-line btn-sm" onClick={() => go("reqs")}>Все 148 заявок <Arr s={13} /></button>
           </div>
-          {/* Плитки и старый рельс шагов убраны дизайном: их место заняли
-              витрина заявок и новый блок этапов (Stages). Фильтр, прятавший
-              каталог от исполнителя, ушёл вместе с плитками — блока больше нет. */}
           <div className="peek__g">
             {REQS.map(r => (
               <button className="peek__c" key={r.id} onClick={() => go("reqs")}>
@@ -510,42 +466,23 @@ function Home({ go, user, isExecutor, canOrder, goPro, goCli, regCli, regPro }) 
 }
 
 /* ---------------- заявки ---------------- */
-function Reqs({ go, pubs = [], flash, onFlashOff, openMine, openLive, user, isExecutor, canOrder, goCli, regPro, regCli }) {
+function Reqs({ go, pubs = [], flash, onFlashOff, openMine, openLive, goCli, regPro, regCli }) {
   const [tab, setTab] = useState(pubs.some(r => r.mine) ? "Мои" : "Все");
-  /* Ничего не отмечено по умолчанию: предвыбранная галочка выглядела как поломка —
-     список ей не соответствовал. */
-  const [on, setOn] = useState([]);
-  const [q, setQ] = useState("");
+  const [on, setOn] = useState(["Проектирование"]);
   const toggle = v => setOn(p => p.includes(v) ? p.filter(x => x !== v) : [...p, v]);
   const all = [...pubs, ...REQS];
-  const groups = buildFilters(all);
-  const query = q.trim().toLowerCase();
-
-  /* «Мои» у вошедшего — только его настоящие заявки: у заказчика опубликованные им,
-     у исполнителя — где он назначен или откликался. Демо-подмешивание (r.id < 3)
-     оставлено гостю, иначе вкладка на витрине пустая. */
-  const list = all
-    .filter(r => tab === "Все" ? true : tab === "Мои" ? (user ? r.mine : (r.mine || r.id < 3)) : r.resp > 2)
-    .filter(r => groups.every(({ val, opts }) => {
-      // Активны только те отметки, что принадлежат этой группе.
-      const active = opts.map(([v]) => v).filter(v => on.includes(v));
-      return active.length === 0 || val(r).some(v => active.includes(v));
-    }))
-    .filter(r => !query || [r.t, r.city, r.type, r.stage, ...(r.secs || [])].join(" ").toLowerCase().includes(query));
+  const list = all.filter(r => tab === "Все" ? true : tab === "Мои" ? (r.mine || r.id < 3) : r.resp > 2);
 
   return (
     <div className="scroll">
       <div className="wrap">
         <div className="rhead">
           <div className="rhead__l">
-            <span className="lbl">{isExecutor ? "Заявки для отклика" : "Заявки заказчиков"}</span>
+            <span className="lbl">Заявки заказчиков</span>
             <h1>Проектирование<br />и экспертиза</h1>
-            <p>{isExecutor
-              ? "Задание, бюджет и срок видны до отклика. Откликайтесь на подходящие — переписка и файлы останутся внутри сделки."
-              : "Задание, бюджет и срок указаны до отклика. Переписка, файлы и оплата по этапам — внутри сделки."}</p>
+            <p>Задание, бюджет и срок указаны до отклика. Переписка, файлы и оплата по этапам — внутри сделки.</p>
             <div className="row g8" style={{ flexWrap: "wrap" }}>
-              {canOrder && <button className="btn btn-acid btn-sm" onClick={() => goCli ? goCli() : go("new")}>Новая заявка</button>}
-              {isExecutor && <button className="btn btn-line btn-sm" onClick={() => setTab("Мои")}>Мои текущие заявки</button>}
+              <button className="btn btn-acid btn-sm" onClick={() => goCli ? goCli() : go("new")}>Новая заявка</button>
             </div>
           </div>
           <div className="rhead__r">
@@ -577,32 +514,22 @@ function Reqs({ go, pubs = [], flash, onFlashOff, openMine, openLive, user, isEx
         <aside className="rail">
           <div className="rail__g">
             <span className="lbl">Поиск</span>
-            <input className="inp" style={{ height: 42, fontSize: 14 }} placeholder="Раздел, город, объект"
-              value={q} onChange={e => setQ(e.target.value)} />
+            <div className="omni" style={{ minWidth: 0 }}><Search /> Раздел, город, объект</div>
           </div>
-          {groups.map(({ g, opts }) => opts.length > 0 && (
+          {Object.entries(FILTERS).map(([g, items]) => (
             <div className="rail__g" key={g}>
               <span className="lbl">{g}</span>
-              {opts.map(([v, n]) => (
+              {items.map(([v, n]) => (
                 <div className={"fchk" + (on.includes(v) ? " on" : "")} key={v} onClick={() => toggle(v)}><i />{v}<em>{n}</em></div>
               ))}
             </div>
           ))}
-          <button className="btn btn-line btn-sm" onClick={() => { setOn([]); setQ(""); }}>Сбросить фильтры</button>
+          <button className="btn btn-line btn-sm">Сбросить фильтры</button>
         </aside>
 
         <main>
           <div className="sec-h">
-            {/* Заголовок под зрителя: гостю — что тут вообще происходит,
-                исполнителю — про его разделы, заказчику — нейтрально. Формулировка
-                «по вашим разделам» заказчику говорила, будто он сам проектирует
-                (замечание Дениса). */}
-            <div>
-              <span className="lbl">{user ? "Открытые заявки" : "Открытые заявки · упрощённый вид"}</span>
-              <h2 style={{ marginTop: 8 }}>
-                {!user ? "Что публикуют заказчики" : isExecutor ? "Подбор по вашим разделам" : "Заявки на площадке"}
-              </h2>
-            </div>
+            <div><span className="lbl">Открытые заявки · упрощённый вид</span><h2 style={{ marginTop: 8 }}>Что публикуют заказчики</h2></div>
             <div className="row g12">
               <div className="seg">{["Все", "Горячие"].map(t => <button key={t} className={tab === t ? "on" : ""} onClick={() => setTab(t)}>{t}</button>)}</div>
             </div>
@@ -656,101 +583,22 @@ function Reqs({ go, pubs = [], flash, onFlashOff, openMine, openLive, user, isEx
   );
 }
 
-/* ---------------- рабочая главная исполнителя ----------------
-   Вошедшему исполнителю маркетинговый лендинг не нужен — он уже внутри.
-   Показываем то, ради чего он пришёл: подходящие заявки и свои работы. */
-function ExecHome({ go, user, cards, openLive }) {
-  const secs = user.specializations || [];
-  const mine = cards.filter(r => r.mine);
-  const rec = cards.filter(r => !r.mine && (secs.length === 0 || (r.secs || []).some(s => secs.includes(s))));
-
-  const Row = ({ r }) => (
-    <button className="team__row" onClick={() => openLive && openLive(r.id)}>
-      <span style={{ minWidth: 0, textAlign: "left" }}>
-        <b style={{ display: "block", fontWeight: 500 }}>{r.t}</b>
-        <span className="lbl">{r.city} · {r.stage || "стадия не указана"} · {(r.secs || []).join(", ") || "разделы не указаны"}</span>
-      </span>
-      <span className="num" style={{ marginLeft: "auto", flex: "0 0 auto" }}>{r.budget}</span>
-    </button>
-  );
-
-  return (
-    <div className="scroll">
-      <div className="wrap page">
-        <div className="page__h">
-          <span className="lbl">Рабочий стол исполнителя</span>
-          <h1>{user.name}</h1>
-          <p>{secs.length
-            ? "Ваши разделы: " + secs.join(", ") + ". По ним подбираем заявки."
-            : "Разделы не выбраны — укажите их в настройках, и подбор заявок станет точнее."}</p>
-        </div>
-        <div className="two">
-          <div style={{ display: "grid", gap: 14 }}>
-            <div className="box">
-              <div className="row" style={{ justifyContent: "space-between", marginBottom: 10 }}>
-                <h3 style={{ margin: 0 }}>Подходящие заявки</h3>
-                <span className="lbl">{rec.length}</span>
-              </div>
-              {rec.length === 0
-                ? <p>Пока нет открытых заявок по вашим разделам. Загляните в общий список — там есть и другие.</p>
-                : <div className="team">{rec.slice(0, 6).map(r => <Row r={r} key={r.id} />)}</div>}
-              <button className="btn btn-line btn-sm" style={{ marginTop: 12 }} onClick={() => go("reqs")}>Все заявки</button>
-            </div>
-            <div className="box">
-              <div className="row" style={{ justifyContent: "space-between", marginBottom: 10 }}>
-                <h3 style={{ margin: 0 }}>Мои отклики и работы</h3>
-                <span className="lbl">{mine.length}</span>
-              </div>
-              {mine.length === 0
-                ? <p>Вы ещё не откликались. Отклик отправляется со страницы заявки.</p>
-                : <div className="team">{mine.map(r => <Row r={r} key={r.id} />)}</div>}
-            </div>
-          </div>
-          <div className="box" style={{ display: "grid", gap: 12 }}>
-            <span className="lbl">Быстрые действия</span>
-            <button className="btn btn-acid" onClick={() => go("reqs")}>Найти заявки</button>
-            <button className="btn btn-line" onClick={() => go("set")}>Разделы и стадии</button>
-            <button className="btn btn-line" onClick={() => go("norm")}>Нормативы</button>
-            <button className="btn btn-line" onClick={() => go("msg")}>Сообщения</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 /* ---------------- shell ---------------- */
 function NewApp() {
-  const { user, orders, responses, logout } = useApp();
+  const { user, orders } = useApp();
   const [scr, setScr] = useState("home");
   const [menu, setMenu] = useState(false);
-  const [acc, setAcc] = useState(false);    /* меню аккаунта в шапке */
-  const [lmenu, setLmenu] = useState(false); /* панель входа в шапке (итерация 5) */
+  const [lmenu, setLmenu] = useState(false);
   const [flash, setFlash] = useState(null);
   const [cur, setCur] = useState(null);
   const [cli, setCli] = useState(null);   /* что заполнили в короткой анкете */
   const [pro, setPro] = useState(null);   /* что заполнили в анкете исполнителя */
-  const go = k => { setMenu(false); setAcc(false); setLmenu(false); setScr(k); };
-
-  /* Кто смотрит: гость видит витрину целиком, вошедший — интерфейс своей роли.
-     Исполнитель определяется по категориям (модель в.18), legacy-роли — по role. */
-  const cats = user?.executorCategories ?? [];
-  const isExecutor = !!user && (cats.length > 0 || user.role === "designer" || user.role === "expert");
-  const isMaker = user?.role === "manufacturer";
-  const canOrder = !user || user.role === "customer";
-
+  const go = k => { setMenu(false); setLmenu(false); setScr(k); };
   /* Реальные заявки из общего хранилища: опубликованные — всем, свои — в любом
      статусе. Демо-витрина REQS остаётся ниже реальных. */
-  const myResp = user ? responses.filter(r => r.designerId === user.id).map(r => r.orderId) : [];
   const liveCards = orders
-    .filter(o => o.status === "published" || (user && (o.customerId === user.id || o.assignedDesignerId === user.id)))
-    .map(o => {
-      const c = orderToCard(o, user?.id);
-      // «Мои» у заказчика — его заявки, у исполнителя — где он назначен или откликался.
-      return isExecutor
-        ? { ...c, mine: o.assignedDesignerId === user.id || myResp.includes(o.id) }
-        : c;
-    });
+    .filter(o => o.status === "published" || (user && o.customerId === user.id))
+    .map(o => orderToCard(o, user?.id));
   const publish = req => { setFlash(req.t); setCur(req); setScr("reqs"); };
   const openMine = req => { if (!req) return; setCur(req); setScr("track"); };
   /* Деталь настоящей заявки (LiveOrder) — по id из хранилища. */
@@ -780,23 +628,15 @@ function NewApp() {
     try { localStorage.setItem("fn.pro.reg", ph || "1"); } catch (e) {}
     setScr("prowork");
   };
-  const NAVS = [
-    ["home", "Главная"],
-    ...(isMaker ? [] : [["reqs", "Заявки"]]),
-    ...(isExecutor || isMaker ? [] : [["pick", "Исполнители"]]),
-    ["cat", "Производители"],
-  ];
+  const NAVS = [["home", "Главная"], ["reqs", "Заявки"], ["pick", "Исполнители"], ["cat", "Производители"]];
   const MORE = [["exp", "Экспертиза", "2 замечания"], ["norm", "Нормативы", ""], ["msg", "Сообщения", "3"], ["an", "Аналитика рынка", ""], ["price", "Тарифы", ""], ["set", "Настройки", ""]];
   const SCR = {
-    home: () => isExecutor
-      ? <ExecHome go={go} user={user} cards={liveCards} openLive={openLive} />
-      : <Home go={go} user={user} isExecutor={isExecutor} canOrder={canOrder}
-              goPro={goPro} goCli={goCli} regCli={regCli} regPro={regPro} />,
+    home: () => <Home go={go} goPro={goPro} goCli={goCli} regCli={regCli} regPro={regPro} />,
     creg: () => <SCREENS.ClientReg go={go} onPro={regPro} onDone={ph => { try { localStorage.setItem("fn.cli.reg", ph || "1"); } catch (e) {} setScr("cint"); }} />,
     cint: () => <SCREENS.ClientIntro go={go} onDone={d => { setCli(d); setScr("cwork"); }} onSkip={() => setScr("cwork")} />,
     cwork: () => <SCREENS.ClientWork go={go} cli={cli} onProfile={() => setScr("cprof")} />,
     cprof: () => <SCREENS.ClientProfile go={go} onBack={() => setScr("cwork")} />,
-    reqs: () => <Reqs go={go} pubs={liveCards} flash={flash} onFlashOff={() => setFlash(null)} openMine={openMine} openLive={openLive} user={user} isExecutor={isExecutor} canOrder={canOrder} goCli={goCli} regPro={regPro} regCli={regCli} />,
+    reqs: () => <Reqs go={go} pubs={liveCards} flash={flash} onFlashOff={() => setFlash(null)} openMine={openMine} openLive={openLive} goCli={goCli} regPro={regPro} regCli={regCli} />,
     live: () => <SCREENS.LiveOrder go={go} orderId={liveId} />,
     track: () => <SCREENS.ReqTrack go={go} req={cur} />,
     detail: () => <SCREENS.OrderDetail go={go} />, order: () => <SCREENS.OrderCard go={go} />, prof: () => <SCREENS.ProProfile go={go} />,
@@ -814,7 +654,7 @@ function NewApp() {
      возвращаем его целиком, без оболочки заказчика. */
   if (scr === "pro" || scr === "prowork" || scr === "creg" || scr === "cint" || scr === "cwork" || scr === "pwork" || scr === "cprof" || scr === "pprof") return SCR[scr]();
   return (
-    <div className="nd" onClick={() => { if (menu) setMenu(false); if (acc) setAcc(false); if (lmenu) setLmenu(false); }}>
+    <div className="nd" onClick={() => { if (menu) setMenu(false); if (lmenu) setLmenu(false); }}>
       <header className="topbar">
         <div className="mark" onClick={() => go("home")}><Mark s={28} /><b>Функция</b></div>
         <nav className="nav">
@@ -831,38 +671,18 @@ function NewApp() {
         </div>
         <span className="spacer" />
         <div className="omni"><Search />Поиск по заявкам и нормативам<kbd>⌘K</kbd></div>
-        {/* На самом мастере кнопка дублировала бы текущий экран — прячем. */}
-        {canOrder && scr !== "new" && <button className="btn btn-ink btn-sm" onClick={() => goCli ? goCli() : go("new")}>Создать заявку</button>}
-        {/* Вошедший видит себя: инициалы и меню аккаунта. Раньше здесь стояло фото
-            из демо-выгрузки, и гость выглядел как чужой залогиненный профиль
-            (замечание Дениса). Гостю вместо этого — панель входа прямо в шапке,
-            без отдельной страницы (итерация 5.2). */}
-        {user ? (
-          <div className="more">
-            <button className="ava" title={user.name} onClick={e => { e.stopPropagation(); setAcc(!acc); }}
-              style={{ display: "grid", placeItems: "center", padding: 0, background: "var(--ink)", color: "var(--acid)", fontSize: 12.5, cursor: "pointer" }}>
-              {userInitials(user.name)}
-            </button>
-            {acc && (
-              <div className="menu" onClick={e => e.stopPropagation()}>
-                <button onClick={() => go("set")}>Настройки<span>{user.email}</span></button>
-                <button onClick={() => { setAcc(false); logout(); }}>Выйти</button>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="more">
-            <button className="signin" onClick={e => { e.stopPropagation(); setLmenu(!lmenu); }}>Войти <Arr s={12} /></button>
-            {lmenu && (
-              <SCREENS.AuthPanel
-                onEnterClient={() => { setLmenu(false); setScr("cwork"); }}
-                onEnterPro={() => { setLmenu(false); setScr("pwork"); }}
-                onRegClient={() => { setLmenu(false); setScr("creg"); }}
-                onRegPro={() => { setLmenu(false); setScr("pro"); }}
-                onClose={() => setLmenu(false)} />
-            )}
-          </div>
-        )}
+        <div className="more">
+          <button className="signin" onClick={e => { e.stopPropagation(); setLmenu(!lmenu); }}>Войти <Arr s={12} /></button>
+          {lmenu && (
+            <SCREENS.AuthPanel
+              onEnterClient={() => { setLmenu(false); setScr("cwork"); }}
+              onEnterPro={() => { setLmenu(false); setScr("pwork"); }}
+              onRegClient={() => { setLmenu(false); setScr("creg"); }}
+              onRegPro={() => { setLmenu(false); setScr("pro"); }}
+              onClose={() => setLmenu(false)} />
+          )}
+        </div>
+        <img className="ava" src={IMG["me.jpg"]} alt="" onClick={() => go("set")} style={{ cursor: "pointer" }} />
       </header>
       {(SCR[scr] || SCR.home)()}
     </div>
