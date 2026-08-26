@@ -9,11 +9,15 @@ import { SCREENS } from "./registry";
 import { IMG } from "../_assets";
 import { useApp } from "@/lib/store";
 import { OBJECT_TYPE_LABELS, STAGE_LABELS } from "@/lib/constants";
-const { useState } = React;
+const { useState, useEffect } = React;
 
 /* Заявка общего хранилища → карточка списка Б. Поле live отличает настоящие
    заявки от демо-витрины REQS. */
 const SCALE_RU = { single: "Один специалист", team: "Команда", org: "Организация" };
+const fmtDate = iso => {
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? String(iso) : d.toLocaleDateString("ru-RU");
+};
 const fmtPubl = iso => {
   const d = new Date(iso);
   if (isNaN(d.getTime())) return "недавно";
@@ -25,7 +29,7 @@ const orderToCard = (o, uid) => ({
   type: OBJECT_TYPE_LABELS[o.objectType] || o.objectType,
   stage: STAGE_LABELS[o.stage] || o.stage,
   secs: o.sections || [], budget: o.budget || "ждём предложений",
-  days: o.deadline ? "до " + o.deadline : "по согласованию",
+  days: o.deadline ? "до " + fmtDate(o.deadline) : "по согласованию",
   resp: o.responsesCount || 0, bids: [], publ: fmtPubl(o.createdAt),
   kind: "Проектирование", attract: SCALE_RU[o.scale] || o.scale,
   note: o.description || "", files: 0, objType: OBJECT_TYPE_LABELS[o.objectType] || o.objectType,
@@ -155,6 +159,16 @@ const REQS = [
 ];
 
 
+/* Гостю точную сумму не показываем — только диапазон. */
+const budRange = b => {
+  const n = parseInt(String(b).replace(/\s/g, "").replace(/[^0-9]/g, ""), 10);
+  if (!n || n < 1000) return "по договорённости";
+  const mln = n / 1e6;
+  const lo = Math.max(0.1, mln * 0.85), hi = mln * 1.15;
+  const f = v => v.toFixed(v < 1 ? 2 : 1).replace(".", ",");
+  return f(lo) + "–" + f(hi) + " млн ₽";
+};
+
 /* Фильтры собираются из самих заявок, а не из выдуманных чисел: иначе счётчики
    врут, а галочки ничего не меняют (замечание Дениса «фильтр не работает»).
    Внутри группы условия складываются по ИЛИ, между группами — по И. */
@@ -260,86 +274,138 @@ const WSTEPS = [
     <div className="wc__link">Скачать комплект <Arr s={12} /></div></>) },
 ];
 
-/* планшет с видом платформы: наклон распрямляется при скролле (без библиотек, на rAF) */
-function ScrollPad({ go }) {
-  const wrapRef = React.useRef(null);
-  const cardRef = React.useRef(null);
-  const headRef = React.useRef(null);
-  React.useEffect(() => {
-    const scroller = wrapRef.current && wrapRef.current.closest(".scroll");
-    if (!scroller) return;
-    let raf = 0;
-    const tick = () => {
-      raf = 0;
-      const el = wrapRef.current, card = cardRef.current, head = headRef.current;
-      if (!el || !card) return;
-      const r = el.getBoundingClientRect();
-      const vh = scroller.clientHeight || window.innerHeight;
-      /* 0 — блок только вошёл снизу, 1 — прошёл верх экрана */
-      const p = Math.max(0, Math.min(1, (vh - r.top) / (vh + r.height * .55)));
-      const e = p < .5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
-      const mob = window.innerWidth <= 760;
-      card.style.transform = "rotateX(" + (17 * (1 - e)).toFixed(2) + "deg) scale(" + ((mob ? .94 : 1.02) - (mob ? -.04 : .02) * e).toFixed(3) + ")";
-      card.style.setProperty("--lift", (1 - e).toFixed(3));
-      if (head) head.style.transform = "translateY(" + (-44 * e).toFixed(1) + "px)";
-    };
-    const onScroll = () => { if (!raf) raf = requestAnimationFrame(tick); };
-    tick();
-    scroller.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onScroll);
-    return () => { scroller.removeEventListener("scroll", onScroll); window.removeEventListener("resize", onScroll); if (raf) cancelAnimationFrame(raf); };
-  }, []);
+/* Цифры 1–5 на сетке 3×5: единица — блок на месте, ноль — блок ушёл. */
+const DIGITS = {
+  1: [0,1,0, 1,1,0, 0,1,0, 0,1,0, 1,1,1],
+  2: [1,1,1, 0,0,1, 1,1,1, 1,0,0, 1,1,1],
+  3: [1,1,1, 0,0,1, 1,1,1, 0,0,1, 1,1,1],
+  4: [1,0,1, 1,0,1, 1,1,1, 0,0,1, 0,0,1],
+  5: [1,1,1, 1,0,0, 1,1,1, 0,0,1, 1,1,1],
+};
+const STAGES = [
+  ["Заявка", "Заказчик описывает объект своими словами — состав разделов платформа подставляет по ПП РФ №87."],
+  ["Отклики", "Предложения приходят только от исполнителей с действующим СРО или НРС: цена, срок, состав работ."],
+  ["Выбор", "Отклики сравниваются в одной таблице; выбранный исполнитель закрепляется за разделами."],
+  ["Работа", "Файлы, замечания и версии — в заявке. Сумма этапа резервируется до старта."],
+  ["Приёмка", "Принятый этап уходит в выплату. История правок и решений остаётся в проекте."],
+];
 
+function Stages() {
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setN(v => (v + 1) % STAGES.length), 3400);
+    return () => clearInterval(t);
+  }, []);
+  const map = DIGITS[n + 1];
   return (
-    <section className="pad" ref={wrapRef}>
-      <div className="pad__head" ref={headRef}>
-        <span className="lbl">Платформа целиком</span>
-        <h2>Вся стройка <em>на одном экране</em></h2>
-        <p>Заявки, отклики, разделы и экспертиза — в одном рабочем месте, с любого устройства.</p>
+    <section className="wayx">
+      <div className="wayx__l">
+        <span className="lbl">Этапы работы платформы</span>
+        <h2>Пять шагов от заявки<br />до подписанного этапа</h2>
+        <div className="wayx__grid" aria-hidden="true">
+          {map.map((v, i) => {
+            const lit = map.reduce((a, x, j) => (x && j <= i ? a + 1 : a), 0);
+            const acc = v && (lit === 3 || lit === 7);
+            return <i key={i} className={(v ? "on" : "") + (acc ? " acc" : "")} style={{ transitionDelay: (i % 3) * 40 + Math.floor(i / 3) * 26 + "ms" }} />;
+          })}
+        </div>
+        <div className="wayx__dots">
+          {STAGES.map(([t], i) => (
+            <button key={t} className={i === n ? "on" : ""} onClick={() => setN(i)} aria-label={t} />
+          ))}
+        </div>
       </div>
-      <div className="pad__stage">
-        <div className="pad__dev" ref={cardRef}>
-          <div className="pad__cam" />
-          <div className="pad__scr">
-            <SCREENS.PadUI />
-          </div>
-        </div>
-        <div className="pad__foot">
-          <span className="lbl">Один аккаунт · веб, планшет и телефон</span>
-          <button className="btn btn-line btn-sm" onClick={() => go("detail")}>Открыть заявку <Arr s={13} /></button>
-        </div>
+
+      <div className="wstack" onMouseEnter={e => e.currentTarget.classList.add("hold")} onMouseLeave={e => e.currentTarget.classList.remove("hold")}>
+        {STAGES.map(([t, d], i) => {
+          const slot = (i - n + STAGES.length) % STAGES.length;
+          return (
+            <article key={t} className={"wcard slot-" + slot} onClick={() => setN(i)}>
+              <div className="wcard__h"><b className="num">{"0" + (i + 1)}</b><span>{t}</span></div>
+              <p>{d}</p>
+              <div className="wcard__f">
+                <span className="lbl">Шаг {i + 1} из {STAGES.length}</span>
+                <i />
+              </div>
+            </article>
+          );
+        })}
       </div>
     </section>
   );
 }
 
-function Home({ go, user, isExecutor, canOrder }) {
+/* Две двери на входе: заказчик и исполнитель. У каждой — своя регистрация
+   и свой способ «сначала посмотреть», без обязательного аккаунта. */
+const GATES = [
+  {
+    k: "cli", v: "01 · Заказчику", t: "Нужен проект, экспертиза или обследование",
+    li: ["Заявка вместо тендера — разделы подскажет платформа", "Отклики только от проверенных: СРО, НРС, страховка", "Публикация и переписка бесплатны"],
+    cta: "Зарегистрироваться как заказчик", sec: "Посмотреть исполнителей", secGo: "pick",
+  },
+  {
+    k: "pro", v: "02 · Исполнителю", t: "Проектируете, считаете, обследуете",
+    li: ["Заявки по вашим разделам и региону", "Задание, бюджет и срок видны до отклика", "Расчёты по этапам, без авансов на словах"],
+    cta: "Зарегистрироваться как исполнитель", sec: "Смотреть открытые заявки", secGo: "reqs",
+  },
+];
+
+function Home({ go, user, isExecutor, canOrder, goPro, goCli, regCli, regPro }) {
   const [open, setOpen] = useState(null);
   const [capOpen, setCapOpen] = useState(0);
   return (
     <div className="scroll">
       <div className="wrap">
-        <section className="hero2">
+        <section className="hero2 hero2--gate">
           <div className="hero__eyebrow"><span className="dot" style={{ background: "var(--acid)" }} /><span className="lbl">Единая платформа ПИР · 2026</span></div>
           <h1>Проектирование<br />без <em>слепых зон</em></h1>
           <p>Заявка, отклики, выбор исполнителя, экспертиза и расчёты — один контур с прозрачными сроками и проверенной репутацией участников.</p>
-          {/* Кнопки зависят от того, кто смотрит: «Зарегистрироваться» нельзя
-              показывать вошедшему, а исполнителю не нужна публикация заявки. */}
-          <div className="hero__cta">
-            {isExecutor ? (
-              <>
-                <button className="btn btn-acid btn-lg" onClick={() => go("reqs")}>Найти заявки <Arr /></button>
-                <button className="btn btn-ghost" onClick={() => go("set")}>Мой профиль <Arr s={13} /></button>
-              </>
-            ) : (
-              <>
-                {canOrder && <button className="btn btn-acid btn-lg" onClick={() => go("new")}>Создать заявку <Arr /></button>}
-                {!user && <a className="btn btn-ink btn-lg" href="/auth?mode=register" style={{ textDecoration: "none" }}>Зарегистрироваться</a>}
-                <button className="btn btn-ghost" onClick={() => go("reqs")}>Смотреть заявки <Arr s={13} /></button>
-              </>
-            )}
+          {/* Гостю — две двери: заказчику и исполнителю. Вошедшему они не нужны,
+              он видит свои действия: исполнитель ищет заявки, заказчик публикует. */}
+          {!user ? (
+            <>
+  <div className="gate">
+              {GATES.map(g => (
+                <div className={"gate__c gate__c--" + g.k} key={g.k}>
+                  <span className="gate__v">{g.v}</span>
+                  <h3>{g.t}</h3>
+                  <div className="gate__li">
+                    {g.li.map(x => <span key={x}><i><Chk s={10} /></i>{x}</span>)}
+                  </div>
+                  <div className="gate__act">
+                    <button className={"btn btn-lg " + (g.k === "cli" ? "btn-ink" : "btn-acid")} onClick={g.k === "cli" ? regCli : regPro}>{g.cta} <Arr /></button>
+                    <button className="gate__sec" onClick={() => g.k === "cli" ? go(g.secGo) : go("reqs")}>{g.sec} <Arr s={13} /></button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="peek__f">
+              <p>Заявки и профили исполнителей открыты всем. Аккаунт нужен только чтобы откликнуться или опубликовать свою заявку.</p>
+              <div className="row g8" style={{ flexWrap: "wrap" }}>
+                <button className="btn btn-ink btn-sm" onClick={regCli}>Я заказчик</button>
+                <button className="btn btn-acid btn-sm" onClick={regPro}>Я исполнитель</button>
+              </div>
+            </div>
+            </>
+          ) : (
+            <div className="hero__cta">
+              {isExecutor ? (
+                <>
+                  <button className="btn btn-acid btn-lg" onClick={() => go("reqs")}>Найти заявки <Arr /></button>
+                  <button className="btn btn-ghost" onClick={() => go("set")}>Мой профиль <Arr s={13} /></button>
+                </>
+              ) : (
+                <>
+                  {canOrder && <button className="btn btn-acid btn-lg" onClick={() => goCli ? goCli() : go("new")}>Создать заявку <Arr /></button>}
+                  <button className="btn btn-ghost" onClick={() => go("reqs")}>Смотреть заявки <Arr s={13} /></button>
+                </>
+              )}
+            </div>
+          )}
+<div className="hero__note">
+            <span className="dot" style={{ background: "var(--moss)" }} />Регистрация — один номер телефона, без пароля. Смотреть заявки и исполнителей можно без аккаунта.
+            <button className="gate__in" onClick={() => go("set")}>Уже есть аккаунт — войти</button>
           </div>
-          <div className="hero__note"><span className="dot" style={{ background: "var(--moss)" }} />Публикация заявки бесплатна · отклики только от проверенных: СРО у организаций, НРС и диплом у частных специалистов</div>
         </section>
       </div>
 
@@ -353,168 +419,41 @@ function Home({ go, user, isExecutor, canOrder }) {
       </div>
 
       <div className="wrap">
-        <section>
-          <div className="roles">
-            <div className="role">
-              <span className="lbl">Заказчику</span>
-              <h3>Найти исполнителя без тендера</h3>
-              <div className="role__list">
-                {["Публикация заявки бесплатная", "Отклики только от проверенных организаций", "Сравнение цен и сроков в одной таблице", "Статус проекта и экспертизы в одном окне"].map(x => <span className="role__li" key={x}>{x}</span>)}
-              </div>
-              <div className="row g8" style={{ marginTop: 4, flexWrap: "wrap" }}>
-                <button className="btn btn-ink" onClick={() => go("new")}>Создать заявку</button>
-                <button className="btn btn-line" onClick={() => go("pick")}>Посмотреть исполнителей</button>
-              </div>
-            </div>
-            <div className="role dark">
-              <span className="lbl">Исполнителю</span>
-              <h3>Получать заказы без холодных звонков</h3>
-              <div className="role__list">
-                {["Открытые заявки с подтверждённым заданием", "Проверенный профиль вместо портфолио в почте", "Вся переписка и файлы по сделке в платформе", "Оплата по этапам, без авансов на словах"].map(x => <span className="role__li" key={x}>{x}</span>)}
-              </div>
-              <div className="row g8" style={{ marginTop: 4, flexWrap: "wrap" }}>
-                <button className="btn btn-acid" onClick={() => go("reqs")}>Смотреть заявки</button>
-              </div>
-            </div>
-          </div>
-        </section>
-      </div>
-
-      <div className="wrap"><ScrollPad go={go} /></div>
-
-      <div className="ticker">
-        {[0, 1].map(k => (
-          <div className="ticker__t" key={k} aria-hidden={k === 1}>
-            {TICK.map(t => <span key={t}><i className="dot" style={{ background: "var(--ink-3)" }} />{t}</span>)}
-          </div>
-        ))}
-      </div>
-
-      <div className="wrap">
-        <section className="statline">
-          <div className="sec-h" style={{ paddingTop: 8 }}>
-            <div><span className="lbl">Инструменты площадки</span><h2 style={{ marginTop: 8 }}>Что закрывает Функция вместо почты и таблиц</h2></div>
-          </div>
-          <div className="tools">
-            {CAPS.filter(c => !(isExecutor && c.go === "pick")).map((c, i) => (
-              <div className={"tool" + (capOpen === i ? " on" : "")} key={c.t} style={{ "--c": c.c }} onClick={() => setCapOpen(i)}>
-                <span className="tool__n">{c.n}</span>
-                <div className="tool__main">
-                  <h3>{c.t}</h3>
-                  <div className="tool__body"><div>
-                    <p>{c.d}</p>
-                    <button className="btn btn-line btn-sm" onClick={e => { e.stopPropagation(); go(c.go); }}>{c.cta} <Arr s={12} /></button>
-                  </div></div>
-                </div>
-                <span className="tool__pl" />
-              </div>
-            ))}
-          </div>
-          <div className="stat" style={{ marginTop: 0 }}>
-            <div><p className="stat__t" style={{ margin: 0, maxWidth: "22ch" }}>Каталог решений производителей — подбор аналогов прямо в разделе проекта</p></div>
-            <div className="logos logos--inline">
-              <span className="brand"><img src={IMG["ridan.webp"]} alt="Ridan" /></span>
-              <span className="brand"><img src={IMG["caparol-logo.webp"]} alt="Caparol" style={{ height: 28 }} /></span>
-              <span className="brand"><img src={IMG["vandjord.jpg"]} alt="Vandjord" /></span>
-              <span className="brand"><img src={IMG["nemen.png"]} alt="Немен" /></span>
-              <span className="lbl">и ещё 382 производителя</span>
-            </div>
-          </div>
-        </section>
-
-        <section className="work">
+        {/* Блок «Заказчику / Исполнителю» убран: его работу теперь делают
+            две двери в hero, а здесь дизайн показывает витрину заявок гостю. */}
+        <section className="peek">
           <div className="sec-h">
-            <div><span className="lbl">Ваш контур</span><h2 style={{ marginTop: 8 }}>Сегодня в работе</h2></div>
-            <button className="btn btn-line btn-sm" onClick={() => go("reqs")}>Все заявки <Arr s={13} /></button>
+            <div><span className="lbl">Витрина без регистрации</span><h2 style={{ marginTop: 8 }}>Что на платформе прямо сейчас</h2></div>
+            <button className="btn btn-line btn-sm" onClick={() => go("reqs")}>Все 148 заявок <Arr s={13} /></button>
           </div>
-          <div className="mini">
-            {MINI.map(m => (
-              <div key={m.l} className="card mini__c">
-                <span className="lbl">{m.l}</span>
-                <b style={{ fontSize: m.small ? 26 : undefined, color: m.c }}>{m.b}</b>
-                <div className="spark">{m.s.map((v, i) => <i key={i} style={{ height: `${v * 7}%`, background: i === m.s.length - 1 ? (m.c || "var(--ink)") : undefined }} />)}</div>
-              </div>
-            ))}
-          </div>
-          <div className="feed">
-            {FEED.map(f => (
-              <div className="frow" key={f.t} onClick={() => go(f.tag === "Экспертиза" ? "exp" : "reqs")}>
-                <span className="lbl">{f.d}</span>
-                <div><h4>{f.t}</h4><p>{f.p}</p></div>
-                <div className="row g16">
-                  <div className="pipe">{f.st.map((s, i) => <i key={i} className={s === 1 ? "on" : s === 2 ? "warn" : ""} />)}</div>
-                  <span className="tag solid" style={{ color: f.warn ? "var(--clay)" : undefined }}>{f.tag}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section className="how">
-          <div className="sec-h">
-            <div><span className="lbl">Как это работает</span><h2 style={{ marginTop: 8 }}>Пять шагов от заявки до заключения</h2></div>
-            <button className="btn btn-line btn-sm" onClick={() => go("new")}>Начать <Arr s={13} /></button>
-          </div>
-          <div className="wtrack">
-            {WSTEPS.map((s, i) => (
-              <div className={"wstep" + (s.fin ? " wstep--fin" : "")} key={s.t}>
-                <span className="wstep__n">{String(i + 1).padStart(2, "0")}</span>
-                <h4>{s.t}</h4>
-                <p>{s.d}</p>
-                <div className="wstep__rail"><span className="wstep__node" /></div>
-                <div className="wstep__card">{s.c}</div>
-              </div>
-            ))}
-          </div>
-          <div className="wbar">
-            {["Все проекты в одном месте", "Проверенные исполнители", "Прозрачные сроки и цены", "Экспертиза онлайн", "История изменений и версий"].map(t => <span key={t}>{t}</span>)}
-            <button className="btn btn-acid btn-sm" onClick={() => go("new")}>Разместить проект <Arr s={13} /></button>
-          </div>
-          <div className="tiles">
-            {/* Исполнителю не показываем вход в каталог коллег — он ему не нужен. */}
-            {TILES.filter(t => !(isExecutor && t.go === "pick")).map(t => (
-              <button className="tile" key={t.t} onClick={() => go(t.go)}>
-                <div className="tile__top" style={{ "--tb": t.bg }}>{t.v}</div>
-                <div className="tile__b">
-                  <h3>{t.t}</h3>
-                  <p>{t.d}</p>
-                  <span className="tile__go">{t.cta} <i><Arr s={12} /></i></span>
-                </div>
+          {/* Плитки и старый рельс шагов убраны дизайном: их место заняли
+              витрина заявок и новый блок этапов (Stages). Фильтр, прятавший
+              каталог от исполнителя, ушёл вместе с плитками — блока больше нет. */}
+          <div className="peek__g">
+            {REQS.map(r => (
+              <button className="peek__c" key={r.id} onClick={() => go("reqs")}>
+                <span className="stage" style={{ color: r.kind === "Экспертиза" ? "var(--clay)" : r.kind === "Обследование" ? "var(--signal)" : "var(--ink)" }}><span className="dot" style={{ background: "currentColor" }} />{r.kind}</span>
+                <h4>{r.t}</h4>
+                <div className="peek__tags"><span className="tag solid">{r.city}</span>{r.secs.slice(0, 3).map(s => <span className="tag" key={s}>{s}</span>)}</div>
+                <div className="peek__kv"><span>{r.budget}</span><span>{r.days}</span><b className="num">{r.resp} откл.</b></div>
               </button>
             ))}
           </div>
-        </section>
-
-        <section className="shot">
-          <div className="sec-h">
-            <div><span className="lbl">Один экран</span><h2 style={{ marginTop: 8 }}>Заявка, отклики и экспертиза — без переписки в почте</h2></div>
-            <button className="btn btn-line btn-sm" onClick={() => go("detail")}>Открыть пример <Arr s={13} /></button>
-          </div>
-          <div className="frame">
-            <div className="frame__bar"><i /><i /><i /><span className="lbl">Заявка №148 · Склад класса А, Домодедово</span></div>
-            <div className="frame__body">
-              <div className="fnav">
-                {[["Заявки", 1], ["Отклики", 0], ["Экспертиза", 0], ["Нормативы", 0], ["Сообщения", 0]].map(([l, on]) => <span key={l} className={on ? "on" : ""}>{l}</span>)}
-              </div>
-              <div style={{ display: "grid", gap: 12, alignContent: "start" }}>
-                <div className="row g8" style={{ flexWrap: "wrap" }}>
-                  <span className="tag solid">Проектирование</span><span className="tag">АР</span><span className="tag">КЖ</span><span className="tag">ОВ</span>
-                </div>
-                <div className="vis" style={{ height: 92, borderRadius: 12, background: "var(--paper)", border: "1px solid var(--line)", padding: 12, display: "grid", gap: 8, alignContent: "center" }}>
-                  <div className="ln a m" /><div className="ln" /><div className="ln s" />
-                </div>
-                <div className="mini-pipe"><i className="on" /><i className="on" /><i className="a" /><i /><i /></div>
-                <span className="lbl">Этап 3 из 5 · согласование разделов</span>
-              </div>
-              <div style={{ display: "grid", gap: 4, alignContent: "start" }}>
-                <span className="lbl" style={{ marginBottom: 6 }}>Отклики · 7</span>
-                {[["Ситипроект", "СП", "2,4 млн · 45 дн", "92"], ["Гипрострой", "ГС", "2,8 млн · 38 дн", "88"], ["Аркада", "АР", "2,1 млн · 60 дн", "74"]].map(([n, ab, p, t]) => (
-                  <div className="fbid" key={n}><Init n={ab} size={26} /><div><h5>{n}</h5><span>{p}</span></div><span className="num">{t}</span></div>
-                ))}
-              </div>
+          <div className="glook">
+            <div className="glook__l"><span className="lbl">Без регистрации</span><b>Открытые заявки — 148</b></div>
+            <div className="glook__c">
+              {[["Проектирование", 96], ["Экспертиза", 31], ["Обследование", 21]].map(([t, n]) => (
+                <button key={t} onClick={() => go("reqs")}>{t}<em className="num">{n}</em></button>
+              ))}
             </div>
+            <button className="btn btn-line btn-sm" onClick={() => go("reqs")}>Открыть витрину <Arr s={13} /></button>
           </div>
+        </section>
+      </div>
 
+      <div className="wrap"><Stages /></div>
+      <div className="wrap">
+        <section className="shot">
           <div className="bento">
             <div className="bento__dark">
               <span className="lbl">Заказы от застройщиков</span>
@@ -524,9 +463,20 @@ function Home({ go, user, isExecutor, canOrder }) {
                 <button className="btn btn-acid" onClick={() => go("reqs")}>Смотреть заявки</button>
               </div>
             </div>
-            <div className="bento__img">
-              <img src={IMG["hero-private.png"]} alt="" />
-              <div className="bento__badge"><b>Экспертиза</b><span>Замечания с привязкой к листу проекта и пункту норматива, история правок сохраняется</span></div>
+            <div className="bento__safe">
+              <span className="lbl">Деньги и проверки</span>
+              <h3>Как платформа держит сделку</h3>
+              <div className="bsafe">
+                {[["01", "Проверка до отклика", "ИНН и ЕГРЮЛ, СРО по реестру НОПРИЗ, НРС и полис — сверяем сами"],
+                  ["02", "Резерв по этапам", "заказчик резервирует сумму до старта, исполнитель видит её в заявке"],
+                  ["03", "Выплата после акта", "принятый этап уходит в выплату, спор фиксируется в переписке"]].map(([n, t, d]) => (
+                  <div className="bsafe__r" key={n}>
+                    <b className="num">{n}</b>
+                    <div><span className="bsafe__t">{t}</span><span className="bsafe__d">{d}</span></div>
+                  </div>
+                ))}
+              </div>
+              <button className="btn btn-line btn-sm" onClick={() => go("price")}>Тарифы и комиссия <Arr s={13} /></button>
             </div>
           </div>
         </section>
@@ -560,7 +510,7 @@ function Home({ go, user, isExecutor, canOrder }) {
 }
 
 /* ---------------- заявки ---------------- */
-function Reqs({ go, pubs = [], flash, onFlashOff, openMine, openLive, user, isExecutor, canOrder }) {
+function Reqs({ go, pubs = [], flash, onFlashOff, openMine, openLive, user, isExecutor, canOrder, goCli, regPro, regCli }) {
   const [tab, setTab] = useState(pubs.some(r => r.mine) ? "Мои" : "Все");
   /* Ничего не отмечено по умолчанию: предвыбранная галочка выглядела как поломка —
      список ей не соответствовал. */
@@ -594,7 +544,7 @@ function Reqs({ go, pubs = [], flash, onFlashOff, openMine, openLive, user, isEx
               ? "Задание, бюджет и срок видны до отклика. Откликайтесь на подходящие — переписка и файлы останутся внутри сделки."
               : "Задание, бюджет и срок указаны до отклика. Переписка, файлы и оплата по этапам — внутри сделки."}</p>
             <div className="row g8" style={{ flexWrap: "wrap" }}>
-              {canOrder && <button className="btn btn-acid btn-sm" onClick={() => go("new")}>Новая заявка</button>}
+              {canOrder && <button className="btn btn-acid btn-sm" onClick={() => goCli ? goCli() : go("new")}>Новая заявка</button>}
               {isExecutor && <button className="btn btn-line btn-sm" onClick={() => setTab("Мои")}>Мои текущие заявки</button>}
             </div>
           </div>
@@ -613,6 +563,16 @@ function Reqs({ go, pubs = [], flash, onFlashOff, openMine, openLive, user, isEx
           <button className="flash__x" onClick={onFlashOff}>✕</button>
         </div></div>
       )}
+      <div className="wrap">
+        <div className="gbar">
+          <span className="gbar__t">Вы смотрите заявки как гость</span>
+          <p>Список, разделы и сроки открыты всем. Аккаунт нужен, чтобы откликнуться или опубликовать свою.</p>
+          <div className="row g8" style={{ flexWrap: "wrap" }}>
+            <button className="btn btn-acid btn-sm" onClick={() => regPro && regPro()}>Регистрация исполнителя</button>
+            <button className="btn btn-line btn-sm" onClick={() => regCli && regCli()}>Регистрация заказчика</button>
+          </div>
+        </div>
+      </div>
       <div className="wrap reqs">
         <aside className="rail">
           <div className="rail__g">
@@ -633,14 +593,18 @@ function Reqs({ go, pubs = [], flash, onFlashOff, openMine, openLive, user, isEx
 
         <main>
           <div className="sec-h">
-            {/* «По вашим разделам» — только исполнителю: заказчику эта формулировка
-                говорила, будто он сам проектирует (замечание Дениса). */}
+            {/* Заголовок под зрителя: гостю — что тут вообще происходит,
+                исполнителю — про его разделы, заказчику — нейтрально. Формулировка
+                «по вашим разделам» заказчику говорила, будто он сам проектирует
+                (замечание Дениса). */}
             <div>
-              <span className="lbl">Открытые заявки</span>
-              <h2 style={{ marginTop: 8 }}>{isExecutor ? "Подбор по вашим разделам" : "Заявки на площадке"}</h2>
+              <span className="lbl">{user ? "Открытые заявки" : "Открытые заявки · упрощённый вид"}</span>
+              <h2 style={{ marginTop: 8 }}>
+                {!user ? "Что публикуют заказчики" : isExecutor ? "Подбор по вашим разделам" : "Заявки на площадке"}
+              </h2>
             </div>
             <div className="row g12">
-              <div className="seg">{["Все", "Мои", "Горячие"].map(t => <button key={t} className={tab === t ? "on" : ""} onClick={() => setTab(t)}>{t}</button>)}</div>
+              <div className="seg">{["Все", "Горячие"].map(t => <button key={t} className={tab === t ? "on" : ""} onClick={() => setTab(t)}>{t}</button>)}</div>
             </div>
           </div>
 
@@ -648,7 +612,7 @@ function Reqs({ go, pubs = [], flash, onFlashOff, openMine, openLive, user, isEx
               демо-витрина ведёт на демо-экраны как раньше. */}
           <div style={{ display: "grid", gap: 14 }}>
             {list.map(r => (
-              <article className={"card rcard" + (r.mine ? " rcard--mine" : "")} key={r.id} onClick={() => r.live ? (openLive && openLive(r.id)) : go(r.kind === "Экспертиза" ? "exp" : r.id === 1 ? "detail" : "order")}>
+              <article className="card rcard rcard--guest" key={r.id} onClick={() => r.live ? (openLive && openLive(r.id)) : go(r.kind === "Экспертиза" ? "exp" : "detail")}>
                 <div className="rcard__top">
                   <div style={{ minWidth: 0 }}>
                     <div className="row g8" style={{ marginBottom: 10, flexWrap: "wrap" }}>
@@ -656,9 +620,7 @@ function Reqs({ go, pubs = [], flash, onFlashOff, openMine, openLive, user, isEx
                         <span className="dot" style={{ background: "currentColor" }} />{r.kind}
                       </span>
                       <span className="lbl">· {r.stage}</span>
-                      {r.mine && <span className="best">ваша заявка</span>}
                       {r.hot && <span className="best">срочно</span>}
-                      {r.warn && <span className="tag" style={{ color: "var(--clay)", borderColor: "rgba(220,90,42,.35)" }}>{r.warn}</span>}
                     </div>
                     <h3>{r.t}</h3>
                     <div className="rcard__meta">
@@ -672,20 +634,17 @@ function Reqs({ go, pubs = [], flash, onFlashOff, openMine, openLive, user, isEx
                   </div>
                 </div>
                 <div className="rcard__grid">
-                  <div className="f"><span>Бюджет</span><b>{r.budget}</b></div>
+                  <div className="f"><span>Бюджет</span><b>{budRange(r.budget)}</b></div>
                   <div className="f"><span>Срок</span><b>{r.days}</b></div>
                   <div className="f"><span>Разделов</span><b>{r.secs.length}</b></div>
-                  <div className="f"><span>Отклики</span>
-                    {r.resp > 0 ? (
-                      <div className="row" style={{ gap: 0, marginTop: 2 }}>
-                        {r.bids.slice(0, 3).map((b, i) => <div key={b.n} style={{ marginLeft: i ? -7 : 0, border: "2px solid var(--card)", borderRadius: 99 }}><Init n={b.n} size={26} /></div>)}
-                        <span className="num" style={{ marginLeft: 9, fontSize: 13 }}>{r.resp}</span>
-                      </div>
-                    ) : <b style={{ color: "var(--ink-3)" }}>ждём</b>}
-                  </div>
+                  <div className="f"><span>Отклики</span><b>{r.resp > 0 ? r.resp : "ждём"}</b></div>
                   <div className="f" style={{ justifySelf: "end", alignSelf: "end" }}>
-                    <button className="btn btn-line btn-sm">{r.mine ? "Отклики и выбор" : r.live ? "Открыть заявку" : "Смотреть отклики"} <Arr s={13} /></button>
+                    <button className="btn btn-line btn-sm" onClick={e => { e.stopPropagation(); regPro && regPro(); }}>Откликнуться <Arr s={13} /></button>
                   </div>
+                </div>
+                <div className="rlock">
+                  <span>Заказчик, полное задание и файлы — после входа исполнителем</span>
+                  <button onClick={e => { e.stopPropagation(); regPro && regPro(); }}>Войти как исполнитель <Arr s={12} /></button>
                 </div>
               </article>
             ))}
@@ -765,10 +724,13 @@ function NewApp() {
   const { user, orders, responses, logout } = useApp();
   const [scr, setScr] = useState("home");
   const [menu, setMenu] = useState(false);
-  const [acc, setAcc] = useState(false);
+  const [acc, setAcc] = useState(false);    /* меню аккаунта в шапке */
+  const [lmenu, setLmenu] = useState(false); /* панель входа в шапке (итерация 5) */
   const [flash, setFlash] = useState(null);
   const [cur, setCur] = useState(null);
-  const go = k => { setMenu(false); setAcc(false); setScr(k); };
+  const [cli, setCli] = useState(null);   /* что заполнили в короткой анкете */
+  const [pro, setPro] = useState(null);   /* что заполнили в анкете исполнителя */
+  const go = k => { setMenu(false); setAcc(false); setLmenu(false); setScr(k); };
 
   /* Кто смотрит: гость видит витрину целиком, вошедший — интерфейс своей роли.
      Исполнитель определяется по категориям (модель в.18), legacy-роли — по role. */
@@ -793,10 +755,31 @@ function NewApp() {
   const openMine = req => { if (!req) return; setCur(req); setScr("track"); };
   /* Деталь настоящей заявки (LiveOrder) — по id из хранилища. */
   const [liveId, setLiveId] = useState(null);
-  const openLive = id => { setLiveId(id); setScr("live"); };
-  /* Каталог исполнителей нужен заказчику (выбрать подрядчика); самому исполнителю
-     и производителю он не нужен — их интерфейс это заявки и свои работы (замечание
-     Дениса от 20.08). */
+  const openLive = id => {
+    const o = orders.find(x => x.id === id);
+    if (o && /Парк Резиденс/.test(o.title || "")) { setScr("order"); return; }
+    setLiveId(id); setScr("live");
+  };
+  /* Контур исполнителя: первый переход — быстрая регистрация по телефону
+     (Land), дальше сразу выбор работ и разделов (Signup). Признак того, что
+     исполнитель уже регистрировался, держим в localStorage. */
+  const [proPhone, setProPhone] = useState("");
+  const proSeen = () => { try { return localStorage.getItem("fn.pro.reg"); } catch (e) { return null; } };
+  /* Контур заказчика: первый раз — регистрация, дальше сразу к заявке. */
+  const goCli = () => {
+    setMenu(false);
+    let seen = null;
+    try { seen = localStorage.getItem("fn.cli.reg"); } catch (e) {}
+    setScr(seen ? "new" : "creg");
+  };
+  const regCli = () => { setMenu(false); setLmenu(false); setScr("creg"); };
+  const regPro = () => { setMenu(false); setLmenu(false); setScr("pro"); };
+  const goPro = () => { setMenu(false); const p = proSeen(); if (p) { setProPhone(p === "1" ? "" : p); setScr("prowork"); } else setScr("pro"); };
+  const proDone = ph => {
+    setProPhone(ph || "");
+    try { localStorage.setItem("fn.pro.reg", ph || "1"); } catch (e) {}
+    setScr("prowork");
+  };
   const NAVS = [
     ["home", "Главная"],
     ...(isMaker ? [] : [["reqs", "Заявки"]]),
@@ -807,8 +790,13 @@ function NewApp() {
   const SCR = {
     home: () => isExecutor
       ? <ExecHome go={go} user={user} cards={liveCards} openLive={openLive} />
-      : <Home go={go} user={user} isExecutor={isExecutor} canOrder={canOrder} />,
-    reqs: () => <Reqs go={go} pubs={liveCards} flash={flash} onFlashOff={() => setFlash(null)} openMine={openMine} openLive={openLive} user={user} isExecutor={isExecutor} canOrder={canOrder} />,
+      : <Home go={go} user={user} isExecutor={isExecutor} canOrder={canOrder}
+              goPro={goPro} goCli={goCli} regCli={regCli} regPro={regPro} />,
+    creg: () => <SCREENS.ClientReg go={go} onPro={regPro} onDone={ph => { try { localStorage.setItem("fn.cli.reg", ph || "1"); } catch (e) {} setScr("cint"); }} />,
+    cint: () => <SCREENS.ClientIntro go={go} onDone={d => { setCli(d); setScr("cwork"); }} onSkip={() => setScr("cwork")} />,
+    cwork: () => <SCREENS.ClientWork go={go} cli={cli} onProfile={() => setScr("cprof")} />,
+    cprof: () => <SCREENS.ClientProfile go={go} onBack={() => setScr("cwork")} />,
+    reqs: () => <Reqs go={go} pubs={liveCards} flash={flash} onFlashOff={() => setFlash(null)} openMine={openMine} openLive={openLive} user={user} isExecutor={isExecutor} canOrder={canOrder} goCli={goCli} regPro={regPro} regCli={regCli} />,
     live: () => <SCREENS.LiveOrder go={go} orderId={liveId} />,
     track: () => <SCREENS.ReqTrack go={go} req={cur} />,
     detail: () => <SCREENS.OrderDetail go={go} />, order: () => <SCREENS.OrderCard go={go} />, prof: () => <SCREENS.ProProfile go={go} />,
@@ -817,9 +805,16 @@ function NewApp() {
     norm: () => <SCREENS.Standards />, msg: () => <SCREENS.Messages />, an: () => <SCREENS.Analytics />,
     price: () => <SCREENS.Pricing />, set: () => <SCREENS.Settings />,
     ai: () => <SCREENS.AiPick />,
+    pro: () => <SCREENS.Land go={go} onDone={proDone} />,
+    prowork: () => <SCREENS.Signup go={go} phone={proPhone} onDone={d => { setPro(d); setScr("pwork"); }} />,
+    pwork: () => <SCREENS.ProWork go={go} pro={pro} onProfile={() => setScr("pprof")} />,
+    pprof: () => <SCREENS.ProProfileFull go={go} onBack={() => setScr("pwork")} />,
   };
+  /* Сайт для исполнителей — отдельный интерфейс со своей шапкой:
+     возвращаем его целиком, без оболочки заказчика. */
+  if (scr === "pro" || scr === "prowork" || scr === "creg" || scr === "cint" || scr === "cwork" || scr === "pwork" || scr === "cprof" || scr === "pprof") return SCR[scr]();
   return (
-    <div className="nd" onClick={() => { if (menu) setMenu(false); if (acc) setAcc(false); }}>
+    <div className="nd" onClick={() => { if (menu) setMenu(false); if (acc) setAcc(false); if (lmenu) setLmenu(false); }}>
       <header className="topbar">
         <div className="mark" onClick={() => go("home")}><Mark s={28} /><b>Функция</b></div>
         <nav className="nav">
@@ -830,15 +825,18 @@ function NewApp() {
           {menu && (
             <div className="menu" onClick={e => e.stopPropagation()}>
               {MORE.map(([k, l, n]) => <button key={k} onClick={() => go(k)}>{l}{n && <span>{n}</span>}</button>)}
+              <button className="menu__pro" onClick={goPro}>Сайт для исполнителей<span>вход</span></button>
             </div>
           )}
         </div>
         <span className="spacer" />
         <div className="omni"><Search />Поиск по заявкам и нормативам<kbd>⌘K</kbd></div>
         {/* На самом мастере кнопка дублировала бы текущий экран — прячем. */}
-        {canOrder && scr !== "new" && <button className="btn btn-ink btn-sm" onClick={() => go("new")}>Создать заявку</button>}
-        {/* Шапка показывает, кто вошёл: раньше здесь стояло фото из демо-выгрузки,
-            и гость выглядел как чужой залогиненный профиль (замечание Дениса). */}
+        {canOrder && scr !== "new" && <button className="btn btn-ink btn-sm" onClick={() => goCli ? goCli() : go("new")}>Создать заявку</button>}
+        {/* Вошедший видит себя: инициалы и меню аккаунта. Раньше здесь стояло фото
+            из демо-выгрузки, и гость выглядел как чужой залогиненный профиль
+            (замечание Дениса). Гостю вместо этого — панель входа прямо в шапке,
+            без отдельной страницы (итерация 5.2). */}
         {user ? (
           <div className="more">
             <button className="ava" title={user.name} onClick={e => { e.stopPropagation(); setAcc(!acc); }}
@@ -853,10 +851,17 @@ function NewApp() {
             )}
           </div>
         ) : (
-          <>
-            <a className="btn btn-line btn-sm" href="/auth" style={{ textDecoration: "none" }}>Войти</a>
-            <a className="btn btn-ink btn-sm" href="/auth?mode=register" style={{ textDecoration: "none" }}>Регистрация</a>
-          </>
+          <div className="more">
+            <button className="signin" onClick={e => { e.stopPropagation(); setLmenu(!lmenu); }}>Войти <Arr s={12} /></button>
+            {lmenu && (
+              <SCREENS.AuthPanel
+                onEnterClient={() => { setLmenu(false); setScr("cwork"); }}
+                onEnterPro={() => { setLmenu(false); setScr("pwork"); }}
+                onRegClient={() => { setLmenu(false); setScr("creg"); }}
+                onRegPro={() => { setLmenu(false); setScr("pro"); }}
+                onClose={() => setLmenu(false)} />
+            )}
+          </div>
         )}
       </header>
       {(SCR[scr] || SCR.home)()}
