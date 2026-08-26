@@ -39,3 +39,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Рабочие материалы, которым не место в репозитории.
+# Выгрузки Cloud Design приходят архивами по 8-100 МБ и раздувают историю;
+# нужное из них переносится в design-handoff-v2/ и коммитится оттуда.
+*.zip
+design-handoff/
+graphify-out/
+Ridan-producer-card.html
+ОТЧЁТ-НОЧНЫХ-ИСПРАВЛЕНИЙ.md
