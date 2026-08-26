@@ -48,3 +48,6 @@ design-handoff/
 graphify-out/
 Ridan-producer-card.html
 ОТЧЁТ-НОЧНЫХ-ИСПРАВЛЕНИЙ.md
+
+# стенд для съёмки экранов при проверке вёрстки — не часть сайта
+app/v2/shot/
