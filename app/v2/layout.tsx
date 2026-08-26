@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Unbounded, Golos_Text, JetBrains_Mono } from 'next/font/google';
 import './v2.css';
 import './fonts.css';
@@ -47,6 +47,18 @@ const mono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: 'Функция — вариант Б',
   description: 'Второй дизайн платформы проектно-изыскательских работ.',
+};
+
+/* Свой viewport только для варианта Б — вариант А остаётся как был.
+   viewportFit: 'cover' пускает страницу под вырез и домашнюю полосу
+   телефона, иначе сверху и снизу остаются поля цвета фона хоста
+   (у платформы он почти чёрный) — сайт выглядит как окно в рамке.
+   themeColor красит строку состояния в цвет бумаги варианта Б. */
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+  themeColor: '#f1efe9',
 };
 
 export default function V2Layout({ children }: { children: React.ReactNode }) {
