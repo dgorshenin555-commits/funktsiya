@@ -47,7 +47,9 @@ MODULES = [
 
 def strip_iife(src):
     """Убирает обёртку (function () { ... })(); и снимает один уровень отступа."""
-    m = re.search(r"^\(function\s*\(\s*\)\s*\{\s*$", src, re.M)
+    # выгрузки Cloud Design встречаются в двух формах обёртки:
+    # (function () { ... })();  и  (() => { ... })();
+    m = re.search(r"^\((?:function\s*\(\s*\)|\(\s*\)\s*=>)\s*\{\s*$", src, re.M)
     if not m:
         return src, False
     start = m.end()

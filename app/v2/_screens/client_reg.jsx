@@ -1,6 +1,6 @@
 "use client";
 
-/* Экран варианта Б. Источник: design-handoff-v2/new_design_land.jsx
+/* Экран варианта Б. Источник: design-handoff-v2/client_reg.jsx
    Первоначально импортирован скриптом tools/transform_jsx.py, но это был
    разовый перенос: дальше экран дописывается прямо здесь. Повторно
    генератор не гоняем — он вернёт файл к состоянию выгрузки. */
@@ -11,11 +11,12 @@ const { useState } = React;
 const Mark = ({ s = 28 }) => (
   <svg width={s} height={s} viewBox="0 0 40 40" fill="none"><rect width="40" height="40" rx="10" fill="#14161A" /><path d="M13 28V12h14M13 20h10" stroke="#C9F24A" strokeWidth="2.6" strokeLinecap="square" /></svg>
 );
+const Arr = ({ s = 14 }) => (<svg width={s} height={s} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M3 8h10M9 4l4 4-4 4" /></svg>);
 
 /* детерминированная матрица QR-вида (только для макета) */
 const QR = (() => {
   const n = 33, m = [];
-  let s = 20260817;
+  let s = 20260826;
   const rnd = () => (s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
   for (let y = 0; y < n; y++) { const row = []; for (let x = 0; x < n; x++) row.push(rnd() > .52 ? 1 : 0); m.push(row); }
   const eye = (oy, ox) => {
@@ -38,32 +39,26 @@ const Qr = ({ size = 190 }) => (
   </div>
 );
 
-const DIRS = [
-  ["Проектировщик", "Разделы ПД и РД под подпись ГИПа", "#C9F24A", "#14161A", 612],
-  ["Эксперт", "Замечания и заключения по документации", "#2440E8", "#F1EFE9", 148],
-  ["Чертёжник", "Выпуск чертежей и BIM-моделей", "#6E3AD6", "#F1EFE9", 274],
-  ["Обследователь", "Обмеры и оценка техсостояния", "#DC5A2A", "#F1EFE9", 96],
+const FACTS = [["0 ₽", "публикация заявки"], ["4 ч", "до первого отклика"], ["1 240", "проверенных исполнителей"]];
+const AFTER = [
+  ["Тип объекта и стадия", "промышленный, коммерческий или жилой — состав разделов подставим сами"],
+  ["Разделы по ПП РФ №87", "лишнее уберёте, спорное уточнят исполнители в откликах"],
+  ["Бюджет и срок", "можно указать ориентир или оставить «ждём предложений»"],
+  ["Отклики и выбор", "цена, срок и состав работ в одной таблице"],
 ];
 const FEED = [
-  ["Склад класса А, Домодедово", "18 400 м² · стадия П", "2,4 млн ₽", ["АР", "КЖ", "ОВ"], "7 откликов"],
-  ["Реконструкция котельной 4,2 МВт", "Тула · стадия РД", "1,1 млн ₽", ["ТХ", "ЭОМ"], "4 отклика"],
-  ["ЖК «Северный парк», корпус 2", "Казань · стадия ПД", "6,8 млн ₽", ["АР", "КР", "ВК"], "9 откликов"],
+  ["Реконструкция котельной 4,2 МВт", "Нижний Новгород · стадия ПД", "1,2 млн ₽", ["ОВ", "ЭОМ", "АР"], "3 отклика"],
+  ["ЖК «Северный», корпус 3", "Казань · экспертиза", "по итерациям", ["АР", "КЖ", "ВК"], "2 отклика"],
+  ["Склад-холодильник 12 000 м²", "Краснодар · стадия РД", "2,9 млн ₽", ["КЖ", "КМ", "ТХ"], "7 откликов"],
 ];
 const STEPS = [
-  ["Заказчики публикуют заявки", "описывают объект, стадию и разделы документации"],
-  ["Вы выбираете подходящие", "фильтр по направлению, стадии и разделам — только ваши задачи"],
-  ["Откликаетесь и обсуждаете", "цена, сроки и состав работ в чате с заказчиком"],
-  ["Выполняете и получаете оплату", "средства резервируются по этапам и приходят после приёмки"],
+  ["Публикуете заявку", "описываете объект своими словами, разделы подставит платформа"],
+  ["Получаете отклики", "только от исполнителей с действующим СРО или НРС"],
+  ["Сравниваете и выбираете", "цена, срок, состав работ и субподряд — в одной таблице"],
+  ["Принимаете по этапам", "средства резервируются заранее и уходят после приёмки раздела"],
 ];
-const TARIFFS = [
-  ["Отклик бесплатно", "Первые 10 откликов в месяц ничего не стоят. Платите только процент с закрытого этапа — если заявка не стала договором, платить нечего.", "0 ₽", "за отклик"],
-  ["Комиссия с этапа", "5% с суммы принятого этапа. Расчёты идут через платформу: заказчик резервирует сумму заранее, вы получаете её после приёмки раздела.", "5%", "с принятого этапа"],
-];
-const FACTS = [["1 240", "заявок в месяц"], ["4,2 млн ₽", "средний бюджет"], ["48 ч", "до первого отклика"]];
 
-const Arr = ({ s = 14 }) => (<svg width={s} height={s} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M3 8h10M9 4l4 4-4 4" /></svg>);
-
-function Land({ go, onDone }) {
+function ClientReg({ go, onDone, onPro }) {
   const [phone, setPhone] = useState("");
   const [sent, setSent] = useState(false);
   const [code, setCode] = useState("");
@@ -74,22 +69,22 @@ function Land({ go, onDone }) {
       <header className="topbar">
         <div className="mark" onClick={() => go && go("home")} style={{ cursor: "pointer" }}><Mark s={28} /><b>Функция</b></div>
         <span className="spacer" />
-        <span className="lbl">Для исполнителей</span>
-        <button className="btn btn-line btn-sm" onClick={() => go && go("home")}>Сайт для заказчиков</button>
+        <span className="lbl">Для заказчиков</span>
+        <button className="btn btn-line btn-sm" onClick={() => onPro && onPro()}>Я исполнитель</button>
       </header>
 
       <div className="scroll">
         <section className="wrap lhero">
           <div>
-            <span className="lbl">Регистрация исполнителя</span>
-            <h1>Регистрация для проектировщиков и подрядчиков</h1>
-            <p>Один шаг — номер телефона. Направления, разделы и документы заполним после входа: платформа сама подскажет состав по ПП РФ №87.</p>
+            <span className="lbl">Регистрация заказчика</span>
+            <h1>Регистрация для застройщиков и собственников объектов</h1>
+            <p>Один шаг — номер телефона. Объект, стадию и разделы заполним после входа: платформа сама подскажет состав по ПП РФ №87.</p>
             <div className="lfacts">
               {FACTS.map(([v, k]) => <div key={k}><b className="num">{v}</b><span className="lbl">{k}</span></div>)}
             </div>
           </div>
           <div className="lhero__ph">
-            <image-slot id="land-hero" shape="rounded" radius="24" src={IMG["pro-at-work.png"]} placeholder="Фото исполнителя за работой"></image-slot>
+            <image-slot id="creg-hero" shape="rounded" radius="24" src={IMG["hero-commercial-2.png"]} placeholder="Фото объекта заказчика"></image-slot>
           </div>
         </section>
 
@@ -98,7 +93,7 @@ function Land({ go, onDone }) {
             <div className="lreg__l">
               <span className="lbl">Шаг 1 из 1 · вход на платформу</span>
               <h2>Зарегистрируйтесь по номеру телефона</h2>
-              <p>Отправим СМС с кодом подтверждения. Рекламу не присылаем, номер заказчикам не показываем — связь идёт через платформу.</p>
+              <p>Отправим СМС с кодом подтверждения. Рекламу не присылаем, номер исполнителям не показываем — связь идёт через платформу.</p>
 
               {!sent ? (<>
                 <div className="lreg__f">
@@ -133,7 +128,7 @@ function Land({ go, onDone }) {
                     <span className="lbl">отправить код повторно через 42 с</span>
                   </div>
                 </div>
-                <button className="btn btn-acid btn-lg lcode__go" onClick={() => onDone && onDone(phone)}>Войти и выбрать работы <Arr /></button>
+                <button className="btn btn-acid btn-lg lcode__go" onClick={() => onDone && onDone(phone)}>Войти и продолжить <Arr /></button>
               </>)}
 
               <div className="lalt">
@@ -147,10 +142,7 @@ function Land({ go, onDone }) {
             <div className="lreg__r">
               <span className="lbl">Что будет после входа</span>
               <div className="lafter">
-                {[["Направление", "проектировщик, эксперт, чертёжник или обследователь"],
-                  ["Стадии и разделы", "состав подставим по ПП РФ №87 — останется отметить своё"],
-                  ["Документы и допуски", "СРО и НРС сверим по реестрам, диплом и полис — сканом"],
-                  ["Ставка и загрузка", "и первые заявки по вашим разделам"]].map(([t, d], i) => (
+                {AFTER.map(([t, d], i) => (
                   <div className="lafter__i" key={t}><b className="num">{i + 1}</b><div><span className="lafter__t">{t}</span><span className="lafter__d">{d}</span></div></div>
                 ))}
               </div>
@@ -164,7 +156,7 @@ function Land({ go, onDone }) {
 
         <section className="wrap lsec">
           <div className="sec-h">
-            <div><span className="lbl">Живая выдача</span><h2 className="lsec__h" style={{ margin: "8px 0 0" }}>Заявки, которые ждут исполнителя</h2></div>
+            <div><span className="lbl">Живая выдача</span><h2 className="lsec__h" style={{ margin: "8px 0 0" }}>Заявки, которые уже идут на платформе</h2></div>
             <button className="btn btn-line btn-sm" onClick={() => go && go("reqs")}>Смотреть все заявки</button>
           </div>
           <div className="lfeed">
@@ -191,47 +183,11 @@ function Land({ go, onDone }) {
           </div>
         </section>
 
-        <section className="wrap lsec">
-          <h2 className="lsec__h">Тарифы</h2>
-          <div className="ltars">
-            {TARIFFS.map(([t, d, v, k]) => (
-              <div className="ltar" key={t}>
-                <div>
-                  <h4>{t}</h4>
-                  <p>{d}</p>
-                </div>
-                <div className="ltar__v"><b className="num">{v}</b><span className="lbl">{k}</span></div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section className="wrap lsec">
-          <div className="lapp">
-            <div className="lapp__dev">
-              <div className="lapp__cam" />
-              <div className="lapp__scr">
-                <Qr size={158} />
-                <span>Наведите камеру телефона, чтобы отсканировать QR-код и скачать приложение</span>
-              </div>
-            </div>
-            <div className="lapp__t">
-              <h2>С приложением «Функция» ещё удобнее</h2>
-              <p>Заявки по вашим разделам, чат с заказчиком и статусы этапов всегда под рукой.</p>
-              <div className="lapp__st">
-                {[["App Store", "Загрузите в"], ["Google Play", "Доступно в"], ["RuStore", "Скачайте из"]].map(([n, s]) => (
-                  <span className="lstore" key={n}><em>{s}</em><b>{n}</b></span>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
-
         <footer className="wrap foot">
           <span className="lbl">Функция · платформа проектно-изыскательских работ</span>
           <div className="row g16">
-            <a href="Функция (регистрация исполнителя).html">Анкета исполнителя</a>
-            <a href="Функция (новый дизайн).html">Заявки</a>
+            <a href="#" onClick={e => { e.preventDefault(); go && go("reqs"); }}>Заявки</a>
+            <a href="#" onClick={e => { e.preventDefault(); go && go("pick"); }}>Исполнители</a>
           </div>
         </footer>
       </div>
@@ -239,4 +195,4 @@ function Land({ go, onDone }) {
   );
 }
 
-Object.assign(SCREENS, { Land });
+Object.assign(SCREENS, { ClientReg });

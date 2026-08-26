@@ -46,7 +46,7 @@ const LOADS = ["Полная загрузка", "Частичная", "Разо�
 const FORMATS = ["Удалённо", "Выезд на объект", "Гибрид"];
 const RATES = ["до 1 500 ₽/ч", "1 500–2 500 ₽/ч", "2 500–4 000 ₽/ч", "от 4 000 ₽/ч", "по проекту"];
 
-function Signup() {
+function Signup({ go, phone: proPhone, onDone }) {
   const R = SCREENS.REQ_FORM || {};
   const TREE = R.STAGE_TREE || [];
   const [step, setStep] = useState(0);
@@ -77,13 +77,14 @@ function Signup() {
   return (
     <div className="nd">
       <header className="topbar">
-        <div className="mark">
+        <div className="mark" onClick={() => go && go("home")} style={{ cursor: "pointer" }}>
           <svg width="28" height="28" viewBox="0 0 40 40" fill="none"><rect width="40" height="40" rx="10" fill="#14161A" /><path d="M13 28V12h14M13 20h10" stroke="#C9F24A" strokeWidth="2.6" strokeLinecap="square" /></svg>
           <b>Функция</b>
         </div>
         <span className="spacer" />
-        <span className="lbl">Анкета исполнителя · бесплатно</span>
-        <a className="btn btn-line btn-sm" href="Функция (новый дизайн).html">На платформу</a>
+        <span className="lbl">{proPhone ? "+7 " + proPhone + " · подтверждён" : "Анкета исполнителя · бесплатно"}</span>
+        <button className="btn btn-line btn-sm" onClick={() => go && go("reqs")}>Заявки по моим разделам</button>
+        <button className="btn btn-ghost btn-sm" onClick={() => go && go("home")}>Сайт для заказчиков</button>
       </header>
 
       <div className="scroll">
@@ -254,7 +255,7 @@ function Signup() {
               <div className="wizbar">
                 <button className="btn btn-line" disabled={step === 0} style={{ opacity: step === 0 ? .4 : 1 }} onClick={() => setStep(s => Math.max(0, s - 1))}>Назад</button>
                 {last
-                  ? <button className="btn btn-acid">Отправить анкету</button>
+                  ? <button className="btn btn-acid" onClick={() => onDone ? onDone({ name, who, region, dirs, secs, stages, yrs, rate, mail, phone: phone || proPhone }) : null}>Отправить анкету и перейти в рабочую область <Arr /></button>
                   : <button className="btn btn-ink" onClick={() => setStep(s => s + 1)}>Далее <Arr /></button>}
                 <span className="lbl" style={{ marginLeft: "auto" }}>Шаг {step + 1} из {STEPS.length}</span>
               </div>

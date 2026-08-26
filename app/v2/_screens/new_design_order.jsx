@@ -67,6 +67,15 @@ const FILES = [
   { ext: "ZIP", name: "Исходные данные.zip", size: "12,4 МБ", date: "05.06.2026" },
 ];
 const TABS = ["Описание", "Проектировщики", "Коммуникации", "Замечания", "Файлы"];
+/* Компактный вид отклика: срок в днях числом — как в списке заявок. */
+const plural = (n, one, few, many) => {
+  const m10 = n % 10, m100 = n % 100;
+  if (m10 === 1 && m100 !== 11) return one;
+  if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) return few;
+  return many;
+};
+const dPl = n => n + " " + plural(n, "день", "дня", "дней");
+const pPl = n => n + " " + plural(n, "проект", "проекта", "проектов");
 const mln = n => (n / 1e6).toLocaleString("ru-RU", { maximumFractionDigits: 1 }) + " млн ₽";
 
 /* ---------- сравнение откликов (10 параметров, как в прототипе) ---------- */
@@ -163,6 +172,7 @@ function OrderCard({ go }) {
   const [tab, setTab] = useState("Описание");
   const [sel, setSel] = useState([]);
   const [cmp, setCmp] = useState(false);
+  const [view, setView] = useState("short");
   const tgl = n => setSel(s => s.includes(n) ? s.filter(x => x !== n) : (s.length >= 4 ? s : [...s, n]));
   const open = REMARKS.filter(r => r.st === "wait").length;
 
@@ -239,8 +249,34 @@ function OrderCard({ go }) {
             </>)}
 
             {tab === "Проектировщики" && (<div className="sect">
-              <div className="sec-h"><h2 style={{ margin: 0 }}>Отклики на заявку</h2><span className="lbl">отметьте 2–4 отклика, чтобы сравнить бок о бок</span></div>
-              <div style={{ display: "grid", gap: 10 }}>
+              <div className="sec-h"><h2 style={{ margin: 0 }}>Отклики</h2>
+                <div className="viewpick">
+                  {[["short", "компактно"], ["full", "подробно"]].map(([k, l]) => (
+                    <button key={k} className={view === k ? "on" : ""} onClick={() => setView(k)}>{l}</button>
+                  ))}
+                </div>
+              </div>
+              <p className="mut" style={{ margin: "-6px 0 14px", fontSize: 13.5 }}>Отметьте 2–4 исполнителя и нажмите «Сравнить» — увидите их рядом в таблице.</p>
+              {view === "short" && <div style={{ display: "grid", gap: 10 }}>
+                {RESPONSES.map(r => {
+                  const on = sel.includes(r.name);
+                  return (
+                    <div className={"bidrow" + (on ? " on" : "")} key={r.name} onClick={() => tgl(r.name)}>
+                      <span className="cbox">{on && <Chk />}</span>
+                      <Ini n={r.ini} size={40} />
+                      <div style={{ minWidth: 0 }}>
+                        <h4>{r.name}</h4>
+                        <p>{r.vf ? "СРО" : "на верификации"} · {pPl(r.projects)} · ★ {r.rating} · ответил {r.resp}</p>
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                        <div className="num" style={{ fontSize: 14.5 }}>{r.price}</div>
+                        <div className="lbl" style={{ marginTop: 4 }}>{dPl(r.termNum)}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>}
+              {view === "full" && <div style={{ display: "grid", gap: 10 }}>
                 {RESPONSES.map(r => {
                   const cov = O.sections.filter(s => r.codes.includes(s));
                   const on = sel.includes(r.name);
@@ -272,12 +308,13 @@ function OrderCard({ go }) {
                     </div>
                   );
                 })}
-              </div>
+              </div>}
               <div className="row g12" style={{ marginTop: 16, flexWrap: "wrap" }}>
                 <button className="btn btn-acid" disabled={sel.length < 2} style={{ opacity: sel.length < 2 ? .45 : 1 }} onClick={() => sel.length > 1 && setCmp(true)}>
-                  Сравнить{sel.length >= 2 ? " · " + sel.length : ""}
+                  Сравнить — {sel.length}
                 </button>
-                {sel.length > 0 && <button className="btn btn-line" onClick={() => setSel([])}>Сбросить</button>}
+                <button className="btn btn-line" onClick={() => go("msg")}>Написать исполнителю</button>
+                {sel.length > 0 && <button className="btn btn-ghost" onClick={() => setSel([])}>Сбросить</button>}
                 <span className="lbl">{sel.length < 2 ? "выбрано " + sel.length + " — добавьте ещё" : "готово к сравнению"}</span>
               </div>
             </div>)}

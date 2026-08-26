@@ -35,10 +35,12 @@ const secMatch = (code, proSecs) => (SEC_ALIAS[code] || [code]).some(a => proSec
 
 /* направления работы — быстрый вход в фильтр списка исполнителей */
 const DIRS = [
-  ["Проектировщик", "Разделы ПД и РД под подпись ГИПа", "#C9F24A", "#14161A", ["Разделы по ПП №87", "Стадии П, ПД, РД", "Сопровождение экспертизы"], ["СРО", "ГИП", "BIM"]],
-  ["Эксперт", "Замечания и заключения по документации", "#2440E8", "#F1EFE9", ["Негос. и гос. экспертиза", "Аудит решений и смет", "Ответы на замечания"], ["Аттестат", "НРС", "Стаж 10+"]],
-  ["Чертёжник", "Выпуск чертежей и BIM-моделей", "#6E3AD6", "#F1EFE9", ["Оформление по ГОСТ", "Спецификации и ведомости", "Модели LOD 300–400"], ["AutoCAD", "Revit", "nanoCAD"]],
-  ["Обследователь", "Обмеры и оценка техсостояния объекта", "#DC5A2A", "#F1EFE9", ["Выезд и обмеры", "Поверочные расчёты", "Техническое заключение"], ["СП 13-102", "Лаборатория", "Лазерное СК"]],
+  /* Описания выровнены по длине (34–36 знаков) и структуре: «что делает —
+     под какой результат». Метки — ровно два коротких пункта на карточку. */
+  ["Проектировщик", "Разрабатывает разделы ПД и РД", "#C9F24A", "#14161A", ["Стадии П и РД", "Состав по №87"], ["СРО", "ГИП", "BIM"]],
+  ["Эксперт", "Проверяет и заключает по разделам", "#2440E8", "#F1EFE9", ["Гос. и негос.", "Ответы на замечания"], ["Аттестат", "НРС", "Стаж 10+"]],
+  ["Чертёжник", "Оформляет чертежи и BIM-модели", "#6E3AD6", "#F1EFE9", ["ГОСТ и ЕСКД", "Модели LOD 300"], ["AutoCAD", "Revit", "nanoCAD"]],
+  ["Обследователь", "Обмеряет объект и оценивает износ", "#DC5A2A", "#F1EFE9", ["Выезд и обмеры", "Техзаключение"], ["СП 13-102", "Лаборатория", "Лазерное СК"]],
 ];
 const dirOf = p => p.dirs || [];
 
@@ -190,6 +192,11 @@ function Pick({ go }) {
     setQuick(false);
   };
   const fCount = on.length + stages.length + secs.length + (dir ? 1 : 0);
+  /* Вариант исполнения блока направлений: плитки или компактные строки. */
+  const [dirView, setDirView] = useState(() => {
+    try { return localStorage.getItem("fn.dirs.view") || "tile"; } catch (e) { return "tile"; }
+  });
+  const setView = v => { setDirView(v); try { localStorage.setItem("fn.dirs.view", v); } catch (e) {} };
   const list = PROS
     .filter(p => !dir || dirOf(p).includes(dir))
     .filter(p => who === "Все" ? true : who === "Организации" ? !p.solo : p.solo)
@@ -208,32 +215,40 @@ function Pick({ go }) {
             <p>Три вопроса — тип исполнителя, стадия проектирования и нужные разделы. Дальше платформа покажет подходящих.</p>
           </div>
           <button className="btn btn-acid btn-lg" onClick={() => setQuick(true)}>Подобрать за 3 шага <Arr /></button>
-          <div className="dirs">
-            <div className="dirs__h">
+        </div>
+      </div>
+      <div className="wrap">
+        <section className={"dirs dirs--" + dirView}>
+          <div className="dirs__h">
+            <div className="dirs__ht">
               <span className="lbl">Или сразу по направлению</span>
-              {dir && <button className="dirs__x" onClick={() => setDir(null)}>сбросить направление ✕</button>}
+              <h2>Четыре типа исполнителей</h2>
             </div>
-            <div className="dircards">
-              {DIRS.map(([d, hint, c, ct, does, tools]) => {
-                const cnt = PROS.filter(p => dirOf(p).includes(d)).length;
-                return (
-                  <button key={d} style={{ "--c": c, "--ct": ct }} className={"dircard" + (dir === d ? " on" : "")} onClick={() => setDir(dir === d ? null : d)}>
-                    <span className="dircard__top">
-                      <span className="dircard__t">{d}</span>
-                      <span className="dircard__n"><b className="num">{cnt}</b> в базе</span>
-                    </span>
-                    <span className="dircard__d">{hint}</span>
-                    <span className="dircard__list">{does.map(x => <i key={x}>{x}</i>)}</span>
-                    <span className="dircard__foot">
-                      <span className="dircard__tools">{tools.map(t => <em key={t}>{t}</em>)}</span>
-                      <span className="dircard__go"><Arr s={13} /></span>
-                    </span>
-                  </button>
-                );
-              })}
+            <div className="dirs__ctl">
+              {dir && <button className="dirs__x" onClick={() => setDir(null)}>сбросить ✕</button>}
+              <div className="viewsw">
+                {[["tile", "плитки"], ["row", "строки"]].map(([k, l]) => (
+                  <button key={k} className={dirView === k ? "on" : ""} onClick={() => setView(k)}>{l}</button>
+                ))}
+              </div>
             </div>
           </div>
-        </div>
+          <div className="dircards">
+            {DIRS.map(([d, hint, c, ct, does, tools]) => {
+              return (
+                <button key={d} style={{ "--c": c, "--ct": ct }} className={"dircard" + (dir === d ? " on" : "")} onClick={() => setDir(dir === d ? null : d)}>
+                  <span className="dircard__t">{d}</span>
+                  <span className="dircard__d">{hint}</span>
+                  <span className="dircard__list">{does.slice(0, 2).map(x => <i key={x}>{x}</i>)}</span>
+                  <span className="dircard__foot">
+                    <span className="dircard__pick">{dir === d ? "выбрано" : "показать"}</span>
+                    <span className="dircard__go"><Arr s={13} /></span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
       </div>
       <div className="wrap reqs">
         <aside className="rail">
@@ -289,11 +304,20 @@ function Pick({ go }) {
         <main>
           <div className="sec-h">
             <div><span className="lbl">Исполнители</span><h2 style={{ marginTop: 8 }}>Организации и частные специалисты</h2></div>
-            <div className="row g12" style={{ flexWrap: "wrap" }}>
-              <div className="seg">{["Все", "Организации", "Специалисты"].map(t => <button key={t} className={who === t ? "on" : ""} onClick={() => setWho(t)}>{t}</button>)}</div>
-              <div className="seg">{["Опыт", "Отклик"].map(t => <button key={t} className={sort === t ? "on" : ""} onClick={() => setSort(t)}>{t}</button>)}</div>
-              <button className="btn btn-line btn-sm">Пригласить в заявку</button>
+            <button className="btn btn-ink btn-sm">Пригласить в заявку <Arr s={13} /></button>
+          </div>
+          {/* Панель управления списком — тёмная, чтобы читалась как активный
+              орган управления, а не как подпись к заголовку. */}
+          <div className="lbar">
+            <div className="lbar__g">
+              <span className="lbl">Кто</span>
+              <div className="seg seg--dark">{["Все", "Организации", "Специалисты"].map(t => <button key={t} className={who === t ? "on" : ""} onClick={() => setWho(t)}>{t}</button>)}</div>
             </div>
+            <div className="lbar__g">
+              <span className="lbl">Сортировка</span>
+              <div className="seg seg--dark">{["Опыт", "Отклик"].map(t => <button key={t} className={sort === t ? "on" : ""} onClick={() => setSort(t)}>{t}</button>)}</div>
+            </div>
+            <div className="lbar__c"><b className="num">{list.length}</b><span className="lbl">найдено</span></div>
           </div>
 
           {(dir || stages.length > 0 || secs.length > 0) && (

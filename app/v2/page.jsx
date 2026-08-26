@@ -18,10 +18,24 @@ import { SCREENS } from './_screens/registry';
 
 import './_screens/request_form';
 
+import './_screens/side_rays';
+import './_screens/specular_btn';
+import './_screens/notify_block';
+import './_screens/auth_panel';
+import './_screens/client_reg';
+import './_screens/client_intro';
+import './_screens/client_work';
+import './_screens/client_profile';
+import './_screens/pro_home';
+import './_screens/pro_work';
+
 import './_screens/new_design';
 import './_screens/new_design_scrub';
 import './_screens/new_design_pad';
 import './_screens/new_design_detail';
+/* pro_profile идёт СТРОГО после detail: оба регистрируют ProProfile,
+   и побеждает тот, кто загрузился последним. Нужен новый — из кабинетов. */
+import './_screens/pro_profile';
 import './_screens/new_design_order';
 import './_screens/new_design_dirs';
 import './_screens/new_design_solo';

@@ -2,6 +2,15 @@ import type { Metadata } from 'next';
 import { Unbounded, Golos_Text, JetBrains_Mono } from 'next/font/google';
 import './v2.css';
 import './fonts.css';
+import './auth_panel.css';
+import './client_intro.css';
+import './client_profile.css';
+import './client_work.css';
+import './pro_home.css';
+import './pro_profile.css';
+import './pro_work.css';
+import './stages_flow.css';
+import './work_extra.css';
 
 /* Вариант Б — второй дизайн платформы, живёт параллельно с основным.
    Свои стили и свои шрифты: v2.css целиком заскоуплен под класс .nd,
