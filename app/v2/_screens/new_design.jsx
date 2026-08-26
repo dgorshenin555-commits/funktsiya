@@ -9,7 +9,6 @@ import { SCREENS } from "./registry";
 import { IMG } from "../_assets";
 import { useApp } from "@/lib/store";
 import { OBJECT_TYPE_LABELS, STAGE_LABELS } from "@/lib/constants";
-import { useRouter } from "next/navigation";
 const { useState, useEffect } = React;
 
 /* Заявка общего хранилища → карточка списка Б. Поле live отличает настоящие
@@ -700,11 +699,12 @@ function NewApp() {
   const isMaker = user?.role === "manufacturer";
   const canOrder = !user || user.role === "customer";
 
-  /* Переход к общему аккаунту — через роутер Next, а не через
-     window.location: сайт лежит на GitHub Pages в подпапке, и
-     абсолютный «/auth» уводил мимо неё, на 404. Роутер сам
-     подставляет basePath из next.config. */
-  const router = useRouter();
+  /* Адрес общего аккаунта. Префикс повторяет basePath из next.config.ts
+     намеренно: роутер Next подставил бы его сам, но при trailingSlash
+     добавляет закрывающий слэш, а GitHub Pages отдаёт по таким адресам
+     404 — перезагрузка страницы регистрации ломалась бы. Поэтому
+     собираем путь руками и уходим на него целиком. */
+  const AUTH = (process.env.NODE_ENV === "production" ? "/funktsiya" : "") + "/auth";
   const [scr, setScr] = useState("home");
   const [menu, setMenu] = useState(false);
   const [lmenu, setLmenu] = useState(false);
@@ -745,7 +745,7 @@ function NewApp() {
      сможет ни опубликовать заявку, ни откликнуться. Экраны входного контура
      (creg/cint/pro) остаются в сборке как дизайн — их подключение к хранилищу
      запланировано следующим заходом. */
-  const toAuth = mode => { setMenu(false); setLmenu(false); router.push(mode ? "/auth?mode=" + mode : "/auth"); };
+  const toAuth = mode => { setMenu(false); setLmenu(false); window.location.href = mode ? AUTH + "?mode=" + mode : AUTH; };
   const goCli = () => { setMenu(false); if (!user) return toAuth("register"); setScr("new"); };
   const regCli = () => toAuth("register");
   const regPro = () => toAuth("register");
@@ -828,10 +828,10 @@ function NewApp() {
             <button className="signin" onClick={e => { e.stopPropagation(); setLmenu(!lmenu); }}>Войти <Arr s={12} /></button>
             {lmenu && (
               <SCREENS.AuthPanel
-                onEnterClient={() => { setLmenu(false); router.push("/auth"); }}
-                onEnterPro={() => { setLmenu(false); router.push("/auth"); }}
-                onRegClient={() => { setLmenu(false); router.push("/auth?mode=register"); }}
-                onRegPro={() => { setLmenu(false); router.push("/auth?mode=register"); }}
+                onEnterClient={() => { setLmenu(false); window.location.href = AUTH; }}
+                onEnterPro={() => { setLmenu(false); window.location.href = AUTH; }}
+                onRegClient={() => { setLmenu(false); window.location.href = AUTH + "?mode=register"; }}
+                onRegPro={() => { setLmenu(false); window.location.href = AUTH + "?mode=register"; }}
                 onClose={() => setLmenu(false)} />
             )}
           </div>
