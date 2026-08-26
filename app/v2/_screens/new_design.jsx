@@ -699,12 +699,12 @@ function NewApp() {
   const isMaker = user?.role === "manufacturer";
   const canOrder = !user || user.role === "customer";
 
-  /* Адрес общего аккаунта. Префикс повторяет basePath из next.config.ts
-     намеренно: роутер Next подставил бы его сам, но при trailingSlash
-     добавляет закрывающий слэш, а GitHub Pages отдаёт по таким адресам
-     404 — перезагрузка страницы регистрации ломалась бы. Поэтому
-     собираем путь руками и уходим на него целиком. */
-  const AUTH = (process.env.NODE_ENV === "production" ? "/funktsiya" : "") + "/auth";
+  /* Вход и регистрация — на своей странице варианта Б: аккаунт общий
+     (та же register/login из lib/store), но оформление не выбрасывает
+     человека в старый интерфейс. Префикс повторяет basePath из
+     next.config.ts, слэша на конце нет: по таким адресам GitHub Pages
+     отдаёт 404. */
+  const AUTH = (process.env.NODE_ENV === "production" ? "/funktsiya" : "") + "/v2/auth";
   const [scr, setScr] = useState("home");
   const [menu, setMenu] = useState(false);
   const [lmenu, setLmenu] = useState(false);
