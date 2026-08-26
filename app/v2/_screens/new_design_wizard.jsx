@@ -7,7 +7,7 @@
 import * as React from "react";
 import { SCREENS } from "./registry";
 import { useApp } from "@/lib/store";
-import { STAGE_P_CAPITAL, OBJECT_TYPE_LABELS, STAGE_LABELS } from "@/lib/constants";
+import { STAGE_P_CAPITAL, OBJECT_TYPE_LABELS, STAGE_LABELS, REGIONS } from "@/lib/constants";
 const { useState, useRef, useEffect } = React;
 
 /* Маппинг полей мастера Б → модель общего хранилища (label → код). */
@@ -44,7 +44,7 @@ const Back = () => (<svg width="14" height="14" viewBox="0 0 16 16" fill="none" 
 
 /* ---------- данные: общий источник (request_form.jsx) ---------- */
 const RF = SCREENS.REQ_FORM;
-const { STEPS, STAGE_OPTS, ATTRACT, TYPES, SUBTYPES, ALL_SECTIONS, SECTION_NAMES, DEFAULTS, sectPlural, exemptExpertise, filledCount, buildRequest } = RF;
+const { STEPS, STAGE_OPTS, ATTRACT, TYPES, SUBTYPES, ALL_SECTIONS, SECTION_NAMES, DEFAULTS, sectPlural, exemptExpertise, filledCount, canNext, buildRequest } = RF;
 
 /* ---------- календарь ---------- */
 const RU_MONTHS = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
@@ -137,6 +137,56 @@ function DateField({ value, onChange, placeholder }) {
   );
 }
 
+/* ---------- регион: справочник с поиском ----------
+   Свободный ввод давал разнобой в написании регионов, поэтому значение
+   берётся только из REGIONS. Позиционирование — как у календаря (.datef/.cal). */
+function RegionField({ value, onChange }) {
+  const [q, setQ] = useState("");
+  const [open, setOpen] = useState(false);
+  const [hi, setHi] = useState(0);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const h = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    const esc = e => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("mousedown", h);
+    document.addEventListener("keydown", esc);
+    return () => { document.removeEventListener("mousedown", h); document.removeEventListener("keydown", esc); };
+  }, [open]);
+
+  /* пока список открыт — фильтруем по набранному, иначе показываем выбранное */
+  const text = open ? q : value;
+  const list = REGIONS.filter(r => r.toLowerCase().includes(q.trim().toLowerCase()));
+
+  const pick = r => { onChange(r); setQ(""); setOpen(false); };
+  const onKey = e => {
+    if (!open) return;
+    if (e.key === "ArrowDown") { e.preventDefault(); setHi(i => Math.min(list.length - 1, i + 1)); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); setHi(i => Math.max(0, i - 1)); }
+    else if (e.key === "Enter" && list[hi]) { e.preventDefault(); pick(list[hi]); }
+  };
+
+  return (
+    <div className="datef" ref={ref}>
+      <input
+        className="inp" placeholder="Начните вводить регион" value={text}
+        onFocus={() => { setQ(""); setHi(0); setOpen(true); }}
+        onChange={e => { setQ(e.target.value); setHi(0); setOpen(true); }}
+        onKeyDown={onKey}
+      />
+      {open && list.length > 0 && (
+        <div className="cal cal--list">
+          {list.map((r, i) => (
+            <button key={r} type="button" className={"cal__opt" + (i === hi ? " hi" : "") + (r === value ? " sel" : "")}
+              onMouseEnter={() => setHi(i)} onClick={() => pick(r)}>{r}</button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ---------- строка предпросмотра ---------- */
 function PrevRow({ icon, label, value, hot, children }) {
   return (
@@ -154,22 +204,46 @@ function PrevRow({ icon, label, value, hot, children }) {
 function OrderNew({ go, onPublish }) {
   const { user, addOrder } = useApp();
   const [step, setStep] = useState(0);
-  const [type, setType] = useState("Коммерческая недвижимость");
-  const [subtype, setSubtype] = useState("Офис");
-  const [title, setTitle] = useState("");
-  const [region, setRegion] = useState("Москва");
-  const [stage, setStage] = useState("П");
-  const [attract, setAttract] = useState("Команда");
-  const [sel, setSel] = useState(["АР", "КР", "ЭОМ"]);
-  const [budget, setBudget] = useState("");
-  const [due, setDue] = useState("");
-  const [byOffer, setByOffer] = useState(true);
-  const [files, setFiles] = useState(0);
-  const [note, setNote] = useState("");
+  const [type, setType] = useState(DEFAULTS.type);
+  const [subtype, setSubtype] = useState(DEFAULTS.subtype);
+  const [title, setTitle] = useState(DEFAULTS.title);
+  const [region, setRegion] = useState(DEFAULTS.region);
+  const [stage, setStage] = useState(DEFAULTS.stage);
+  const [attract, setAttract] = useState(DEFAULTS.attract);
+  const [sel, setSel] = useState(DEFAULTS.sel);
+  const [budget, setBudget] = useState(DEFAULTS.budget);
+  const [due, setDue] = useState(DEFAULTS.due);
+  const [byOffer, setByOffer] = useState(DEFAULTS.byOffer);
+  const [files, setFiles] = useState(DEFAULTS.files);
+  const [note, setNote] = useState(DEFAULTS.note);
+
+  /* Гость дошёл бы до последнего шага и только там узнал, что нужен вход, —
+     поэтому просим войти сразу. Хуки выше: порядок вызовов не должен меняться. */
+  if (!user) return (
+    <div className="scroll">
+      <div className="wrap wiz5">
+        <button className="back" onClick={() => go("reqs")}><Back /> К заявкам</button>
+        <div className="box" style={{ maxWidth: 520, display: "grid", gap: 14 }}>
+          <span className="lbl">Создание заявки</span>
+          <h2 style={{ fontFamily: "var(--fd)", fontWeight: 500, fontSize: 26, letterSpacing: "-.03em", margin: 0 }}>Сначала войдите</h2>
+          <p style={{ margin: 0, fontSize: 14, lineHeight: 1.55, color: "var(--ink-2)" }}>
+            Заявку можно опубликовать только из аккаунта заказчика — так исполнители видят, кто её разместил.
+          </p>
+          <div className="row g12" style={{ flexWrap: "wrap" }}>
+            <a className="btn btn-acid" href="/auth?mode=register" style={{ textDecoration: "none" }}>Зарегистрироваться</a>
+            <a className="btn btn-line" href="/auth" style={{ textDecoration: "none" }}>Войти</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   const toggle = s => setSel(p => p.includes(s) ? p.filter(x => x !== s) : [...p, s]);
 
-  const filled = [type, region && stage && attract, sel.length, (byOffer || budget) && due ? 1 : (budget || due), files].filter(Boolean).length;
-  const exempt = type === "Частное строительство";
+  const form = { type, subtype, title, region, stage, attract, sel, budget, due, byOffer, files, note };
+  const filled = filledCount(form);
+  const nextOk = canNext(step, form);
+  const exempt = exemptExpertise(type);
 
   /* Публикация пишет заявку в общее хранилище платформы (то же, что у основного
      дизайна): заявку видят исполнители в обеих версиях. Карточка req остаётся
@@ -183,11 +257,12 @@ function OrderNew({ go, onPublish }) {
     }
     const digits = String(budget).replace(/\D/g, "");
     const specialists = [...new Set(sel.flatMap(code => (STAGE_P_CAPITAL.find(s => s.code === code) || {}).specialists || []))];
+    const typeLabel = [type, subtype].filter(Boolean).join(" · ");
     const order = addOrder({
-      title: title.trim() || (type + " · " + subtype),
+      title: title.trim() || typeLabel,
       description: (subtype && subtype !== "Другое" ? subtype + ". " : "") + note.trim(),
       objectType: TYPE_CODE[type] || "commercial",
-      region: region || "Москва",
+      region,
       scale: SCALE_CODE[attract] || "team",
       stage: STAGE_CODE[stage] || "P",
       sections: sel,
@@ -198,7 +273,7 @@ function OrderNew({ go, onPublish }) {
     });
     const req = {
       id: order.id, mine: true, live: true, t: order.title,
-      city: region || "Регион не указан", type: type + " · " + subtype, stage: stageName,
+      city: region || "Регион не указан", type: typeLabel, stage: stageName,
       secs: sel, budget: byOffer || !digits ? "ждём предложений" : Number(digits).toLocaleString("ru-RU") + " ₽",
       days: due ? "до " + due : "по согласованию", resp: 0, publ: "только что",
       kind: "Проектирование", bids: [],
@@ -237,31 +312,34 @@ function OrderNew({ go, onPublish }) {
                 <label>Тип объекта</label>
                 <div className="selcards">
                   {TYPES.map(([t, ic, d]) => (
-                    <button type="button" key={t} className={"selcard" + (t === type ? " on" : "")} onClick={() => { setType(t); setSubtype(SUBTYPES[t][0]); }}>
+                    <button type="button" key={t} className={"selcard" + (t === type ? " on" : "")} onClick={() => { setType(t); setSubtype(""); }}>
                       <span className="selcard__ic"><Icon name={ic} size={19} /></span>
                       <b>{t}</b><em>{d}</em>
                     </button>
                   ))}
                 </div>
               </div>
-              <div className="field" key={type}>
-                <label>Назначение объекта</label>
-                <div className="picks">
-                  {SUBTYPES[type].map(s => <button key={s} type="button" className={"pick" + (s === subtype ? " on" : "")} onClick={() => setSubtype(s)}>{s}</button>)}
+              {/* назначение и вывод об экспертизе зависят от типа — до его выбора показывать нечего */}
+              {type && (<>
+                <div className="field" key={type}>
+                  <label>Назначение объекта</label>
+                  <div className="picks">
+                    {SUBTYPES[type].map(s => <button key={s} type="button" className={"pick" + (s === subtype ? " on" : "")} onClick={() => setSubtype(s)}>{s}</button>)}
+                  </div>
                 </div>
-              </div>
-              <div className={"noteline" + (exempt ? " ok" : "")}>
-                <span className="noteline__ic"><Icon name={exempt ? "check" : "shield"} size={17} /></span>
-                <p>{exempt
-                  ? <><b>Экспертиза не требуется.</b> Для индивидуального жилого дома проектная документация не подлежит обязательной экспертизе.</>
-                  : <><b>Потребуется экспертиза.</b> Объект капитального строительства — документация проходит государственную или негосударственную экспертизу.</>}</p>
-              </div>
+                <div className={"noteline" + (exempt ? " ok" : "")}>
+                  <span className="noteline__ic"><Icon name={exempt ? "check" : "shield"} size={17} /></span>
+                  <p>{exempt
+                    ? <><b>Экспертиза не требуется.</b> Для индивидуального жилого дома проектная документация не подлежит обязательной экспертизе.</>
+                    : <><b>Потребуется экспертиза.</b> Объект капитального строительства — документация проходит государственную или негосударственную экспертизу.</>}</p>
+                </div>
+              </>)}
             </div>)}
 
             {step === 1 && (<div className="fade">
               <div className="field">
                 <label>Регион</label>
-                <input className="inp" value={region} onChange={e => setRegion(e.target.value)} />
+                <RegionField value={region} onChange={setRegion} />
               </div>
               <div className="field">
                 <label>Стадия проектирования</label>
@@ -333,7 +411,7 @@ function OrderNew({ go, onPublish }) {
             <div className="wizbar">
               <button className="btn btn-line" disabled={step === 0} style={{ opacity: step === 0 ? .4 : 1 }} onClick={() => setStep(s => Math.max(0, s - 1))}>Назад</button>
               {step < STEPS.length - 1
-                ? <button className="btn btn-ink" onClick={() => setStep(s => s + 1)}>Далее <Arr /></button>
+                ? <button className="btn btn-ink" disabled={!nextOk} style={{ opacity: nextOk ? 1 : .4 }} onClick={() => setStep(s => s + 1)}>Далее <Arr /></button>
                 : <button className="btn btn-acid" onClick={publish}>Опубликовать заявку</button>}
               <span className="lbl" style={{ marginLeft: "auto" }}>Шаг {step + 1} из {STEPS.length}</span>
             </div>
@@ -344,24 +422,24 @@ function OrderNew({ go, onPublish }) {
               <span className="lbl">Предпросмотр заявки</span>
               <span className="pv__cnt num">{filled}<span>/5</span></span>
             </div>
+            {/* предпросмотр показывает только выбранное: пустое поле — прочерк, обложка без стадии пустая */}
             <div className="pv__cover">
               <span className="pv__stage">{stage}</span>
-              <span className="pv__type">{type.split(" ")[0]}</span>
+              <span className="pv__type">{type ? type.split(" ")[0] : ""}</span>
             </div>
             <h3>{title.trim() || "Новая заявка"}</h3>
-            <div className="pv__sub">Стадия {stage} · {attract}</div>
+            <div className="pv__sub">{[stage && "Стадия " + stage, attract].filter(Boolean).join(" · ") || "—"}</div>
             <div className="pv__rows">
-              <PrevRow icon="building" label="Тип объекта" value={subtype ? type + " · " + subtype : type} hot={step === 0} />
+              <PrevRow icon="building" label="Тип объекта" value={[type, subtype].filter(Boolean).join(" · ") || "—"} hot={step === 0} />
               <PrevRow icon="pin" label="Регион" value={region || "—"} hot={step === 1} />
-              <PrevRow icon="layers" label="Стадия / привлечение" value={stage + " · " + attract} hot={step === 1} />
+              <PrevRow icon="layers" label="Стадия / привлечение" value={[stage, attract].filter(Boolean).join(" · ") || "—"} hot={step === 1} />
               {sel.length > 0 && (
                 <PrevRow icon="file" label={"Разделы · " + sel.length} hot={step === 2}>
                   <div className="pv__codes">{sel.map(s => <span key={s} className="code">{s}</span>)}</div>
                 </PrevRow>
               )}
-              {(budget || due || byOffer) && <PrevRow icon="calendar" label="Срок" value={due || "по согласованию"} hot={step === 3} />}
+              {(budget || due || byOffer) && <PrevRow icon="calendar" label="Срок" value={due || "—"} hot={step === 3} />}
               {files > 0 && <PrevRow icon="paperclip" label="Файлы" value={files + " шт."} hot={step === 4} />}
-              {note.trim() && <PrevRow icon="edit" label="Описание" value="в свободной форме" hot={step === 4} />}
             </div>
             <div className="pv__price">
               {byOffer || !budget

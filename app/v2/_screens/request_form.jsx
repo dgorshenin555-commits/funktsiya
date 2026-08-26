@@ -29,9 +29,11 @@ const SUBTYPES = {
 /* Справочник разделов стадии П — общий источник lib/constants.ts */
 const ALL_SECTIONS = STAGE_P_CAPITAL.map(s => s.code);
 const SECTION_NAMES = Object.fromEntries(STAGE_P_CAPITAL.map(s => [s.code, s.name]));
+/* Форма стартует пустой: всё, что видно в предпросмотре, должен выбрать сам
+   заказчик — иначе он не понимает, откуда взялись данные в его заявке. */
 const DEFAULTS = {
-  type: "Коммерческая недвижимость", subtype: "Офис", title: "", region: "Москва",
-  stage: "П", attract: "Команда", sel: ["АР", "КР", "ЭОМ"], budget: "", due: "",
+  type: "", subtype: "", title: "", region: "",
+  stage: "", attract: "", sel: [], budget: "", due: "",
   byOffer: true, files: 0, note: "",
 };
 const fmtRub = n => n.toLocaleString("ru-RU");
@@ -40,11 +42,19 @@ const stageName = code => (STAGE_OPTS.find(s => s[0] === code) || [])[1] || code
 const exemptExpertise = type => type === "Частное строительство";
 /* сколько шагов заполнено — для счётчика предпросмотра */
 const filledCount = f => [f.type, f.region && f.stage && f.attract, f.sel.length, (f.byOffer || f.budget) && f.due ? 1 : (f.budget || f.due), f.files].filter(Boolean).length;
+/* Готов ли шаг к переходу дальше. Обязательное — только то, без чего заявку
+   нельзя показать исполнителям; подтип, бюджет, сроки и файлы необязательны. */
+const canNext = (step, f) => {
+  if (step === 0) return !!f.type;
+  if (step === 1) return !!(f.region && f.stage && f.attract);
+  if (step === 2) return f.sel.length > 0;
+  return true;
+};
 /* поля мастера → карточка заявки в общем списке */
 const buildRequest = f => ({
   id: "draft-" + Date.now(), mine: true,
-  t: (f.title || "").trim() || (f.type + " · " + f.subtype),
-  city: f.region || "Регион не указан", type: f.type + " · " + f.subtype, stage: stageName(f.stage),
+  t: (f.title || "").trim() || [f.type, f.subtype].filter(Boolean).join(" · "),
+  city: f.region || "Регион не указан", type: [f.type, f.subtype].filter(Boolean).join(" · "), stage: stageName(f.stage),
   secs: f.sel, budget: f.byOffer || !f.budget ? "ждём предложений" : f.budget + " ₽",
   days: f.due ? "до " + f.due : "по согласованию", resp: 0, publ: "только что",
   kind: "Проектирование", bids: [], attract: f.attract, files: f.files,
@@ -78,5 +88,5 @@ const STAGE_TREE = [
 
 SCREENS.REQ_FORM = {
   STEPS, STAGE_OPTS, ATTRACT, TYPES, SUBTYPES, ALL_SECTIONS, SECTION_NAMES,
-  DEFAULTS, STAGE_TREE, fmtRub, sectPlural, stageName, exemptExpertise, filledCount, buildRequest,
+  DEFAULTS, STAGE_TREE, fmtRub, sectPlural, stageName, exemptExpertise, filledCount, canNext, buildRequest,
 };

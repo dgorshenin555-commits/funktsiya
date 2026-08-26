@@ -7,40 +7,33 @@
    (см. app/_orders/shared.tsx). */
 
 import caparolLogo from '@/public/caparol-logo.webp';
+import heroCommercial2 from '@/public/hero-commercial-2.png';
+import heroIndustrial2 from '@/public/hero-industrial-2.png';
+import heroPrivate2 from '@/public/hero-private-2.png';
 import heroPrivate from '@/public/hero-private.png';
 import knaufAquapanel from '@/public/knauf-aquapanel.jpg';
 import me from '@/public/me.jpg';
 import nemen from '@/public/nemen.png';
+import proAtWork from '@/public/pro-at-work.png';
 import ridanHex from '@/public/ridan-hex.jpg';
 import ridan from '@/public/ridan.webp';
+import tehnosferaLogo from '@/public/tehnosfera-logo.jpg';
 import vandjordStation from '@/public/vandjord-station.jpg';
 import vandjord from '@/public/vandjord.jpg';
 
-/* ВРЕМЕННЫЕ ПОДСТАНОВКИ.
-   Четыре картинки не удалось выгрузить из Cloud Design: API отдаёт файлы
-   не больше 256 КБ, а эти крупнее. Пока подставлены ближайшие аналоги
-   варианта А, чтобы сборка проходила и страницы отрисовывались.
-   Когда оригиналы окажутся в public/, заменить импорты на настоящие:
-     hero-commercial-2.png, hero-industrial-2.png,
-     hero-private-2.png, tehnosfera-logo.jpg */
-import heroCommercial from '@/public/hero-commercial.png';
-import heroIndustrial from '@/public/hero-industrial.png';
-
 export const IMG = {
   'caparol-logo.webp': caparolLogo.src,
+  'hero-commercial-2.png': heroCommercial2.src,
+  'hero-industrial-2.png': heroIndustrial2.src,
+  'hero-private-2.png': heroPrivate2.src,
   'hero-private.png': heroPrivate.src,
   'knauf-aquapanel.jpg': knaufAquapanel.src,
   'me.jpg': me.src,
   'nemen.png': nemen.src,
+  'pro-at-work.png': proAtWork.src,
   'ridan-hex.jpg': ridanHex.src,
   'ridan.webp': ridan.src,
+  'tehnosfera-logo.jpg': tehnosferaLogo.src,
   'vandjord-station.jpg': vandjordStation.src,
   'vandjord.jpg': vandjord.src,
-
-  // временные подстановки — см. комментарий выше
-  'hero-commercial-2.png': heroCommercial.src,
-  'hero-industrial-2.png': heroIndustrial.src,
-  'hero-private-2.png': heroPrivate.src,
-  'tehnosfera-logo.jpg': caparolLogo.src,
-  'pro-at-work.png': heroIndustrial.src,
 };
