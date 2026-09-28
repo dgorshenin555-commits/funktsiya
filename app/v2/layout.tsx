@@ -15,9 +15,12 @@ import './pro_home.css';
 import './pro_profile.css';
 import './client_profile.css';
 import './work_extra.css';
-/* Главная-концепт (выгрузка v3): после стилей экранов, до mobile.css */
+/* Главная-концепт (выгрузка v3) выключена флагом HOME_CONCEPT в new_design.jsx.
+   Её стили не подключаем: мобильный файл меняет шапку, отступы и панель входа
+   на всех экранах. Включая концепт — раскомментировать обе строки.
 import './home_concept.css';
 import './home_concept_mobile.css';
+*/
 /* Последним: мобильные доводки перекрывают всё, что выше.
    Пишется руками, генераторами из design-handoff-v2 не затрагивается. */
 import './mobile.css';
