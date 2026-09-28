@@ -6,138 +6,130 @@
    генератор не гоняем — он вернёт файл к состоянию выгрузки. */
 import * as React from "react";
 import { SCREENS } from "./registry";
-import { useApp } from "@/lib/store";
 const { useState, useEffect, useRef } = React;
 const I = ({ d, s = 15 }) => (<svg width={s} height={s} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">{d}</svg>);
+const IcoPhone = p => <I {...p} d={<><path d="M6.5 2.5h-2a1.5 1.5 0 0 0-1.5 1.6c.3 3 1.5 5.8 3.5 8s4.7 3.4 7.7 3.7a1.5 1.5 0 0 0 1.6-1.5v-2a1.5 1.5 0 0 0-1.3-1.5 8 8 0 0 1-1.8-.4 1.5 1.5 0 0 0-1.6.3l-.8.8a11 11 0 0 1-3.5-3.5l.8-.8a1.5 1.5 0 0 0 .3-1.6 8 8 0 0 1-.4-1.8 1.5 1.5 0 0 0-1.5-1.3Z" /></>} />;
 const IcoKey = p => <I {...p} d={<><circle cx="7" cy="13" r="3" /><path d="M9 11l7-7M14 4h3v3" /></>} />;
 const IcoWarn = p => <I {...p} d={<><path d="M10 3l7 13H3l7-13ZM10 8v4M10 14h.01" /></>} />;
-const IcoMail = p => <I {...p} d={<><rect x="2.5" y="4.5" width="15" height="11" rx="2" /><path d="M3 6l7 5 7-5" /></>} />;
-const IcoUser = p => <I {...p} d={<><circle cx="10" cy="7" r="3.2" /><path d="M4 17c.8-3 3.2-4.5 6-4.5s5.2 1.5 6 4.5" /></>} />;
 const IcoOk = p => <I {...p} d={<><path d="M4 10.5l4 4L16 6" /></>} />;
 const Arr = ({ s = 13 }) => (<svg width={s} height={s} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M3 8h10M9 4l4 4-4 4" /></svg>);
 const Spin = ({ s = 15 }) => (<svg className="aspin" width={s} height={s} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M10 2.5a7.5 7.5 0 1 0 7.5 7.5" /></svg>);
 
-
-/* Панель «Войти / Регистрация» в шапке (выгрузка v3).
-   Разметка и приёмы — из дизайна; вход и регистрация — настоящие, через общий
-   аккаунт платформы (login/register из lib/store), на месте, без перехода.
-   В дизайне вход по телефону и коду, но аккаунты платформы держатся на
-   email и пароле (решение от 28.09) — поля заменены, остальное как в макете.
-   /v2/auth остаётся запасным входом по прямой ссылке (там же сброс пароля). */
-const BASE = process.env.NODE_ENV === "production" ? "/funktsiya" : "";
+const digits = v => v.replace(/\D/g, "").slice(0, 10);
+const mask = v => {
+  const d = digits(v);
+  if (!d) return "";
+  return [d.slice(0, 3), d.slice(3, 6), d.slice(6, 8), d.slice(8, 10)].filter(Boolean).join(" ").replace(/ (\d\d) (\d\d)$/, "-$1-$2");
+};
 
 function AuthPanel({ onEnterClient, onEnterPro, onRegClient, onRegPro, onClose }) {
-  const { login, register } = useApp();
   const [tab, setTab] = useState("in");          /* in | up */
-  const [role, setRole] = useState("cli");       /* cli | pro — для регистрации */
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [role, setRole] = useState("cli");       /* cli | pro */
+  const [phone, setPhone] = useState("");
+  const [code, setCode] = useState("");
+  const [step, setStep] = useState("phone");     /* phone | code | ok */
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
-  const [done, setDone] = useState(null);        /* { kind: "in" | "up", pro, code } */
-  const firstRef = useRef(null);
+  const [touched, setTouched] = useState(false);
+  const [remember, setRemember] = useState(true);
+  const codeRef = useRef(null);
 
-  useEffect(() => { if (firstRef.current) firstRef.current.focus(); }, [tab]);
+  /* Номер запоминаем только если пользователь сам попросил. */
+  useEffect(() => {
+    try {
+      const s = localStorage.getItem("fn.auth.phone");
+      if (s) setPhone(mask(s));
+    } catch (e) {}
+  }, []);
+  useEffect(() => { if (step === "code" && codeRef.current) codeRef.current.focus(); }, [step]);
 
-  const okMail = /.+@.+\..+/.test(email.trim());
-  const switchTab = k => { setTab(k); setErr(null); };
+  const phoneErr = touched && digits(phone).length < 10 ? "Введите 10 цифр номера" : null;
 
-  /* Кто вошёл — решает хранилище: исполнитель определяется по категориям
-     (модель в.18), остальным — кабинет заказчика. */
-  const isPro = u => !!u && ((u.executorCategories || []).length > 0 || u.role === "designer" || u.role === "expert");
-
-  const enter = () => {
-    if (!okMail) { setErr("Проверьте адрес почты"); return; }
-    if (!password) { setErr("Введите пароль"); return; }
+  const send = () => {
+    setTouched(true);
+    if (digits(phone).length < 10) { setErr("Проверьте номер телефона"); return; }
     setErr(null); setBusy(true);
-    const ok = login(email, password);
-    setBusy(false);
-    if (!ok) { setErr("Неверная почта или пароль"); return; }
-    let u = null;
-    try { u = JSON.parse(localStorage.getItem("pm_users") || "[]").find(x => x.email.trim().toLowerCase() === email.trim().toLowerCase()); } catch (e) {}
-    const pro = isPro(u);
-    setDone({ kind: "in", pro });
-    setTimeout(() => (pro ? onEnterPro && onEnterPro() : onEnterClient && onEnterClient()), 600);
+    setTimeout(() => { setBusy(false); setStep("code"); }, 700);
   };
-
-  const signUp = () => {
-    if (!name.trim()) { setErr(role === "cli" ? "Введите имя или название компании" : "Введите имя"); return; }
-    if (!okMail) { setErr("Проверьте адрес почты"); return; }
-    if (password.length < 6) { setErr("Пароль — не короче 6 символов"); return; }
-    setErr(null);
-    /* как на /v2/auth: исполнитель по умолчанию — проектировщик, категории уточняются в анкете */
-    const code = register(role === "pro"
-      ? { email, name, role: "designer", phone: "", password, executorCategories: ["designer"] }
-      : { email, name, role: "customer", phone: "", password });
-    if (!code) { setErr("Эта почта уже занята — войдите в существующий аккаунт"); return; }
-    setDone({ kind: "up", pro: role === "pro", code });
+  const enter = () => {
+    if (code.length < 4) { setErr("Код из четырёх цифр"); return; }
+    setErr(null); setBusy(true);
+    setTimeout(() => {
+      setBusy(false); setStep("ok");
+      try { remember ? localStorage.setItem("fn.auth.phone", digits(phone)) : localStorage.removeItem("fn.auth.phone"); } catch (e) {}
+      setTimeout(() => (role === "cli" ? onEnterClient && onEnterClient() : onEnterPro && onEnterPro()), 500);
+    }, 700);
   };
-
-  const onEnterKey = f => e => { if (e.key === "Enter") f(); };
 
   return (
     <div className="auth" onClick={e => e.stopPropagation()}>
       <div className="auth__tabs">
         {[["in", "Вход"], ["up", "Регистрация"]].map(([k, l]) => (
-          <button key={k} className={tab === k ? "on" : ""} onClick={() => switchTab(k)}>{l}</button>
+          <button key={k} className={tab === k ? "on" : ""} onClick={() => { setTab(k); setErr(null); setStep("phone"); }}>{l}</button>
         ))}
       </div>
 
-      {done ? (
+      <div className="auth__role">
+        {[["cli", "Заказчик"], ["pro", "Исполнитель"]].map(([k, l]) => (
+          <button key={k} className={role === k ? "on" : ""} onClick={() => setRole(k)}>{l}</button>
+        ))}
+      </div>
+
+      {tab === "up" ? (
+        <div className="auth__b">
+          <p className="auth__note">Регистрация занимает один шаг — номер телефона. Профиль и объекты заполняются после входа.</p>
+          <button className="auth__go" onClick={() => role === "cli" ? onRegClient && onRegClient() : onRegPro && onRegPro()}>
+            {role === "cli" ? "Регистрация заказчика" : "Регистрация исполнителя"} <Arr />
+          </button>
+          <button className="auth__link" onClick={() => setTab("in")}>У меня уже есть аккаунт</button>
+        </div>
+      ) : step === "ok" ? (
         <div className="auth__b auth__done">
           <span className="auth__ok"><IcoOk s={18} /></span>
-          {done.kind === "in" ? (<>
-            <b>Вход выполнен</b>
-            <span>Открываем {done.pro ? "кабинет исполнителя" : "кабинет заказчика"}…</span>
-          </>) : (<>
-            <b>Аккаунт создан</b>
-            <span>Код восстановления пароля — сохраните его:</span>
-            <b className="num" style={{ letterSpacing: ".12em" }}>{done.code}</b>
-            <button className="auth__go" onClick={() => (done.pro ? onRegPro && onRegPro() : onRegClient && onRegClient())}>
-              {done.pro ? "Заполнить анкету исполнителя" : "Рассказать об объекте"} <Arr />
-            </button>
-          </>)}
+          <b>Вход выполнен</b>
+          <span>Открываем {role === "cli" ? "кабинет заказчика" : "кабинет исполнителя"}…</span>
         </div>
       ) : (
         <div className="auth__b">
-          {tab === "up" && (
-            <div className="auth__role">
-              {[["cli", "Заказчик"], ["pro", "Исполнитель"]].map(([k, l]) => (
-                <button key={k} className={role === k ? "on" : ""} onClick={() => setRole(k)}>{l}</button>
-              ))}
-            </div>
+          {step === "phone" ? (
+            <>
+              <label className="afield">
+                <span className="afield__i"><IcoPhone /></span>
+                <span className="afield__c">+7</span>
+                <input className={"afield__in num" + (phoneErr ? " bad" : "")} inputMode="numeric" placeholder="900 000-00-00"
+                  value={phone} onChange={e => setPhone(mask(e.target.value))} onBlur={() => setTouched(true)}
+                  onKeyDown={e => e.key === "Enter" && send()} />
+              </label>
+              {phoneErr && <span className="aerr"><IcoWarn s={13} />{phoneErr}</span>}
+              <label className="arem">
+                <input type="checkbox" checked={remember} onChange={e => setRemember(e.target.checked)} />
+                <i />
+                <span>Запомнить номер на этом устройстве</span>
+              </label>
+              <button className="auth__go" disabled={busy} onClick={send}>
+                {busy ? <><Spin /> Отправляем код</> : <>Получить код <Arr /></>}
+              </button>
+            </>
+          ) : (
+            <>
+              <span className="auth__sent">Код отправлен на +7 {phone}</span>
+              <label className="afield">
+                <span className="afield__i"><IcoKey /></span>
+                <input ref={codeRef} className="afield__in afield__in--code num" inputMode="numeric" maxLength={4} placeholder="· · · ·"
+                  value={code} onChange={e => setCode(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                  onKeyDown={e => e.key === "Enter" && enter()} />
+              </label>
+              <button className="auth__go" disabled={busy || code.length < 4} onClick={enter}>
+                {busy ? <><Spin /> Проверяем</> : <>Войти в кабинет <Arr /></>}
+              </button>
+              <button className="auth__link" onClick={() => { setStep("phone"); setCode(""); setErr(null); }}>Изменить номер</button>
+            </>
           )}
-          {tab === "up" && (
-            <label className="afield">
-              <span className="afield__i"><IcoUser /></span>
-              <input ref={firstRef} className="afield__in" placeholder={role === "cli" ? "Имя или компания" : "Имя и фамилия"}
-                value={name} onChange={e => setName(e.target.value)} onKeyDown={onEnterKey(signUp)} autoComplete="name" />
-            </label>
-          )}
-          <label className="afield">
-            <span className="afield__i"><IcoMail /></span>
-            <input ref={tab === "in" ? firstRef : null} className="afield__in" type="email" placeholder="you@example.ru"
-              value={email} onChange={e => setEmail(e.target.value)} onKeyDown={onEnterKey(tab === "in" ? enter : signUp)} autoComplete="email" />
-          </label>
-          <label className="afield">
-            <span className="afield__i"><IcoKey /></span>
-            <input className="afield__in" type="password" placeholder={tab === "in" ? "Пароль" : "Пароль, от 6 символов"}
-              value={password} onChange={e => setPassword(e.target.value)} onKeyDown={onEnterKey(tab === "in" ? enter : signUp)}
-              autoComplete={tab === "in" ? "current-password" : "new-password"} />
-          </label>
           {err && <span className="aerr"><IcoWarn s={13} />{err}</span>}
-          {tab === "in" ? (<>
-            <button className="auth__go" disabled={busy} onClick={enter}>
-              {busy ? <><Spin /> Проверяем</> : <>Войти в кабинет <Arr /></>}
-            </button>
-            <a className="auth__link" href={BASE + "/v2/auth?mode=reset"}>Забыли пароль?</a>
-          </>) : (<>
-            <button className="auth__go" onClick={signUp}>
-              {role === "cli" ? "Регистрация заказчика" : "Регистрация исполнителя"} <Arr />
-            </button>
-            <button className="auth__link" onClick={() => switchTab("in")}>У меня уже есть аккаунт</button>
-          </>)}
+          <div className="auth__alt">
+            <span>или войдите через</span>
+            <div>{["Госуслуги", "СБИС"].map(v => <button key={v}>{v}</button>)}</div>
+          </div>
         </div>
       )}
     </div>

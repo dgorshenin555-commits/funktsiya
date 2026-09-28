@@ -771,7 +771,11 @@ function NewApp() {
   /* Главная-концепт (выгрузка v3): гостю шапка с якорями по главной и кнопкой
      «Кабинет» вместо навигации, поиска и меню. Вошедшему шапка прежняя —
      с аватаром и выходом, иначе из концепта не выйти из аккаунта. */
-  const CONCEPT = !user && !!SCREENS.HomeConcept;
+  /* Главная-концепт в выгрузке — запасной вариант за флагом (HOME_CONCEPT
+     в прототипе выключен). Основная — «Проектирование без слепых зон»
+     (решение от 28.09). Включить концепт — поставить true. */
+  const HOME_CONCEPT = false;
+  const CONCEPT = HOME_CONCEPT && !user && !!SCREENS.HomeConcept;
   const CNAV = [["hc-tasks", "Найти решение"], ["hc-how", "Как это работает"], ["hc-pro", "Исполнителям"]];
   const anchor = id => {
     if (scr !== "home") setScr("home");
@@ -784,7 +788,7 @@ function NewApp() {
   const SCR = {
     home: () => isExecutor
       ? <ExecHome go={go} user={user} cards={liveCards} openLive={openLive} />
-      : SCREENS.HomeConcept
+      : HOME_CONCEPT && SCREENS.HomeConcept
         ? <SCREENS.HomeConcept go={go} regCli={regCli} regPro={regPro} />
         : <Home go={go} goPro={goPro} goCli={goCli} regCli={regCli} regPro={regPro} />,
     creg: () => <SCREENS.ClientReg go={go} onPro={regPro} onDone={ph => { try { localStorage.setItem("fn.cli.reg", ph || "1"); } catch (e) {} setScr("cint"); }} />,
@@ -852,18 +856,22 @@ function NewApp() {
           <div className="more">
             <button className="signin" onClick={e => { e.stopPropagation(); setAuthOpen(!authOpen); }}>{CONCEPT ? "Кабинет" : "Войти"} <Arr s={12} /></button>
             {authOpen && (
-              /* Вход и регистрация на месте (выгрузка v3). После входа — главная
-                 своей роли (у исполнителя рабочий стол); после регистрации —
-                 экраны знакомства: заказчику анкета объекта, исполнителю — анкета. */
+              /* Панель как в дизайне (решение от 28.09): вход по телефону и коду —
+                 демо, настоящий аккаунт не создаётся; переходы как в прототипе:
+                 вход — в рабочую область роли, регистрация — в анкету.
+                 Вход по email и паролю — на /v2/auth. */
               <SCREENS.AuthPanel
-                onEnterClient={() => { setAuthOpen(false); setScr("home"); }}
-                onEnterPro={() => { setAuthOpen(false); setScr("home"); }}
-                onRegClient={() => { setAuthOpen(false); setScr("cint"); }}
-                onRegPro={() => { setAuthOpen(false); setScr("prowork"); }}
+                onEnterClient={() => { setAuthOpen(false); setScr("cwork"); }}
+                onEnterPro={() => { setAuthOpen(false); setScr("pwork"); }}
+                onRegClient={() => { setAuthOpen(false); setScr("creg"); }}
+                onRegPro={() => { setAuthOpen(false); setScr("pro"); }}
                 onClose={() => setAuthOpen(false)} />
             )}
           </div>
         )}
+        {/* Фото справа — как в дизайне (решение от 28.09); у вошедшего вместо
+            него кнопка с инициалами и меню выхода. */}
+        {!user && <img className="ava" src={IMG["me.jpg"]} alt="" onClick={() => go("set")} style={{ cursor: "pointer" }} />}
       </header>
       {(SCR[scr] || SCR.home)()}
     </div>
