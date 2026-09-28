@@ -52,12 +52,6 @@ const Search = ({ s = 15 }) => (
 const X = () => (<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><path d="M4 4l8 8M12 4l-8 8" /></svg>);
 const Chk = ({ s = 12 }) => (<svg width={s} height={s} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M3 8.5l3.5 3.5L13 4.5" /></svg>);
 
-/* Инициалы по первым буквам слов: «Андрей Кузнецов» → «АК», «ООО «Техносфера»» → «ОТ». */
-const userInitials = s => {
-  const w = (s || "").split(/[^А-Яа-яA-Za-z]+/).filter(Boolean);
-  return (w.length > 1 ? w[0][0] + w[1][0] : (w[0] || "").slice(0, 2)).toUpperCase() || "??";
-};
-
 const Init = ({ n, bg = "#E8E5DD", c = "#14161A", size = 30 }) => (
   <div className="num" style={{ width: size, height: size, flex: `0 0 ${size}px`, borderRadius: 99, background: bg, color: c, display: "grid", placeItems: "center", fontSize: size * 0.36, fontWeight: 500, letterSpacing: 0 }}>{n}</div>
 );
@@ -841,13 +835,18 @@ function NewApp() {
             гость выглядел как чужой залогиненный профиль (замечание Дениса-2). */}
         {user && !authOpen ? (
           <div className="more">
-            <button className="ava" title={user.name} onClick={e => { e.stopPropagation(); setLmenu(!lmenu); }}
-              style={{ display: "grid", placeItems: "center", padding: 0, background: "var(--ink)", color: "var(--acid)", fontSize: 12.5, cursor: "pointer" }}>
-              {userInitials(user.name)}
-            </button>
+            {/* Вошедшему — то же фото, что в дизайне (решение от 28.09), по нажатию
+                меню аккаунта. Имя и почта — отдельной строкой: длинная почта
+                внутри кнопки вылезала за край меню. */}
+            <img className="ava" src={IMG["me.jpg"]} alt="" title={user.name}
+              onClick={e => { e.stopPropagation(); setLmenu(!lmenu); }} style={{ cursor: "pointer" }} />
             {lmenu && (
               <div className="menu" onClick={e => e.stopPropagation()}>
-                <button onClick={() => go("set")}>Настройки<span>{user.email}</span></button>
+                <div style={{ padding: "8px 11px 10px", marginBottom: 4, borderBottom: "1px solid var(--line)", minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 500 }}>{user.name}</div>
+                  <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 3, overflowWrap: "anywhere" }}>{user.email}</div>
+                </div>
+                <button onClick={() => go("set")}>Настройки</button>
                 <button onClick={() => { setLmenu(false); logout(); }}>Выйти</button>
               </div>
             )}
