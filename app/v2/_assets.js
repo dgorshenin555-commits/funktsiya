@@ -21,7 +21,13 @@ import tehnosferaLogo from '@/public/tehnosfera-logo.jpg';
 import vandjordStation from '@/public/vandjord-station.jpg';
 import vandjord from '@/public/vandjord.jpg';
 
+/* Видео импортом не подключить (next/image понимает только картинки),
+   поэтому путь собирается вручную — с тем же префиксом basePath, что в
+   next.config.ts. */
+const BASE = process.env.NODE_ENV === 'production' ? '/funktsiya' : '';
+
 export const IMG = {
+  'promo.mp4': BASE + '/promo.mp4',
   'caparol-logo.webp': caparolLogo.src,
   'hero-commercial-2.png': heroCommercial2.src,
   'hero-industrial-2.png': heroIndustrial2.src,

@@ -1,0 +1,47 @@
+/* home_concept_mobile.css — мобильная главная по концепту. Подключать после home_concept.css. */
+html,body{background:var(--paper)}
+.nd .topbar{height:56px;flex:0 0 56px;padding:0 16px;gap:10px}
+.nd .topbar--c .nav{display:none}
+.nd .topbar .mark b{font-size:14px}
+.nd .topbar--c .signin{height:34px;padding:0 14px;font-size:13px}
+.nd .wrap{padding:0 16px}
+.hc{padding:22px 0 0}
+.hc__role{width:100%;display:grid;grid-template-columns:1fr 1fr;margin-bottom:22px}
+.hc__role button{height:40px;padding:0;font-size:14px}
+.hc__hero{grid-template-columns:1fr;gap:24px}
+.hc__hero h1{font-size:34px;letter-spacing:-.045em;margin-bottom:14px}
+.hc__hero h1 br{display:none}
+.hc__hero p.lead{font-size:15px;margin-bottom:18px;max-width:none}
+.hc__act{flex-direction:column;align-items:stretch;gap:12px}
+.hc__act .btn{width:100%;justify-content:center;height:50px;font-size:15px}
+.hc__act .hc__sec{justify-content:center;height:40px}
+.hero__note{font-size:12.5px;margin-top:16px}
+.hc__pv{padding:16px}
+.hc__photo{height:170px}
+.hc__stick{position:static;max-width:none;margin-top:2px;box-shadow:none}
+.hc__trust{flex-direction:column;gap:12px;margin-top:28px;padding:14px 0}
+.hc .sec-h{margin-top:40px;flex-direction:column;align-items:flex-start;gap:8px}
+.hc .sec-h h2{font-size:24px;letter-spacing:-.04em}
+.hc .sec-h p{max-width:none}
+.hc__brief{padding:18px;margin-top:20px}
+.hc__brief .sec-h{flex-direction:row;align-items:flex-start}
+.hc__brief .btn{width:100%;justify-content:center}
+.hc__res ul{padding-left:16px}
+/* горизонтальные ленты вместо сеток */
+.hc__tasks,.hc__how,.hc__links{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;margin:16px -16px 0;padding:0 16px 8px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.hc__tasks::-webkit-scrollbar,.hc__how::-webkit-scrollbar,.hc__links::-webkit-scrollbar{display:none}
+.hc__task,.hc__how article,.hc__link{flex:0 0 78vw;max-width:320px;scroll-snap-align:start}
+.hc__task{min-height:0;padding:22px 20px 20px}
+.hc__task .k{font-size:26px}
+.hc__how{background:transparent;border-radius:0;overflow-x:auto;gap:12px}
+.hc__how article{border-radius:var(--r3);padding:22px 20px 24px}
+.hc__how .k{font-size:30px}
+.hc__link{padding:20px 52px 20px 20px}
+.hc__help{border-radius:var(--r3);flex-direction:column;align-items:flex-start;padding:16px 18px}
+.hc__pro{grid-template-columns:1fr;padding:24px 20px;margin-top:40px;gap:18px}
+.hc__pro h2{font-size:26px}
+.hc__pro h2 br{display:none}
+.hc__pro .btn{width:100%;justify-content:center}
+.nd .foot{flex-direction:column;align-items:flex-start;gap:14px;padding:32px 0 40px}
+/* панель входа на всю ширину */
+.nd .auth{width:calc(100vw - 32px);right:-8px}

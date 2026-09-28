@@ -15,6 +15,9 @@ import './pro_home.css';
 import './pro_profile.css';
 import './client_profile.css';
 import './work_extra.css';
+/* Главная-концепт (выгрузка v3): после стилей экранов, до mobile.css */
+import './home_concept.css';
+import './home_concept_mobile.css';
 /* Последним: мобильные доводки перекрывают всё, что выше.
    Пишется руками, генераторами из design-handoff-v2 не затрагивается. */
 import './mobile.css';

@@ -39,6 +39,7 @@ import './_screens/auth_panel';
 import './_screens/client_intro';
 import './_screens/client_work';
 import './_screens/pro_work';
+import './_screens/home_concept';
 import './_screens/new_design';
 
 export default function V2Page() {

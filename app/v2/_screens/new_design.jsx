@@ -293,7 +293,7 @@ const STAGES = [
 function Stages() {
   const [n, setN] = useState(0);
   useEffect(() => {
-    const t = setInterval(() => setN(v => (v + 1) % STAGES.length), 3400);
+    const t = setInterval(() => setN(v => (v + 1) % STAGES.length), 1700);
     return () => clearInterval(t);
   }, []);
   const map = DIGITS[n + 1];
@@ -383,7 +383,7 @@ function Home({ go, goPro, goCli, regCli, regPro }) {
             </div>
           </div>
           <div className="hero__note">
-            <span className="dot" style={{ background: "var(--moss)" }} />Регистрация занимает минуту. Смотреть заявки и исполнителей можно и без аккаунта.
+            <span className="dot" style={{ background: "var(--moss)" }} />Регистрация — один номер телефона, без пароля. Смотреть заявки и исполнителей можно без аккаунта.
             <button className="gate__in" onClick={() => go("set")}>Уже есть аккаунт — войти</button>
           </div>
         </section>
@@ -708,6 +708,10 @@ function NewApp() {
   const [scr, setScr] = useState("home");
   const [menu, setMenu] = useState(false);
   const [lmenu, setLmenu] = useState(false);
+  /* Панель входа живёт своим состоянием, а не «пока гость»: после регистрации
+     хранилище сразу авторизует, и без этого панель исчезла бы вместе с кодом
+     восстановления и кнопкой перехода к анкете. */
+  const [authOpen, setAuthOpen] = useState(false);
   const [flash, setFlash] = useState(null);
   const [cur, setCur] = useState(null);
   const [cli, setCli] = useState(null);   /* что заполнили в короткой анкете */
@@ -764,11 +768,25 @@ function NewApp() {
     ...(isExecutor || isMaker ? [] : [["pick", "Исполнители"]]),
     ["cat", "Производители"],
   ];
+  /* Главная-концепт (выгрузка v3): гостю шапка с якорями по главной и кнопкой
+     «Кабинет» вместо навигации, поиска и меню. Вошедшему шапка прежняя —
+     с аватаром и выходом, иначе из концепта не выйти из аккаунта. */
+  const CONCEPT = !user && !!SCREENS.HomeConcept;
+  const CNAV = [["hc-tasks", "Найти решение"], ["hc-how", "Как это работает"], ["hc-pro", "Исполнителям"]];
+  const anchor = id => {
+    if (scr !== "home") setScr("home");
+    setTimeout(() => {
+      const el = document.getElementById(id);
+      if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 84, behavior: "smooth" });
+    }, scr !== "home" ? 60 : 0);
+  };
   const MORE = [["exp", "Экспертиза", "2 замечания"], ["norm", "Нормативы", ""], ["msg", "Сообщения", "3"], ["an", "Аналитика рынка", ""], ["price", "Тарифы", ""], ["set", "Настройки", ""]];
   const SCR = {
     home: () => isExecutor
       ? <ExecHome go={go} user={user} cards={liveCards} openLive={openLive} />
-      : <Home go={go} goPro={goPro} goCli={goCli} regCli={regCli} regPro={regPro} />,
+      : SCREENS.HomeConcept
+        ? <SCREENS.HomeConcept go={go} regCli={regCli} regPro={regPro} />
+        : <Home go={go} goPro={goPro} goCli={goCli} regCli={regCli} regPro={regPro} />,
     creg: () => <SCREENS.ClientReg go={go} onPro={regPro} onDone={ph => { try { localStorage.setItem("fn.cli.reg", ph || "1"); } catch (e) {} setScr("cint"); }} />,
     cint: () => <SCREENS.ClientIntro go={go} onDone={d => { setCli(d); setScr("cwork"); }} onSkip={() => setScr("cwork")} />,
     cwork: () => <SCREENS.ClientWork go={go} cli={cli} onProfile={() => setScr("cprof")} />,
@@ -791,9 +809,15 @@ function NewApp() {
      возвращаем его целиком, без оболочки заказчика. */
   if (scr === "pro" || scr === "prowork" || scr === "creg" || scr === "cint" || scr === "cwork" || scr === "pwork" || scr === "cprof" || scr === "pprof") return SCR[scr]();
   return (
-    <div className="nd" onClick={() => { if (menu) setMenu(false); if (lmenu) setLmenu(false); }}>
-      <header className="topbar">
+    <div className="nd" onClick={() => { if (menu) setMenu(false); if (lmenu) setLmenu(false); if (authOpen) setAuthOpen(false); }}>
+      <header className={"topbar" + (CONCEPT ? " topbar--c" : "")}>
         <div className="mark" onClick={() => go("home")}><Mark s={28} /><b>Функция</b></div>
+        {CONCEPT ? (<>
+          <nav className="nav">
+            {CNAV.map(([id, l]) => <button key={id} onClick={() => anchor(id)}>{l}</button>)}
+          </nav>
+          <span className="spacer" />
+        </>) : (<>
         <nav className="nav">
           {NAVS.map(([k, l]) => <button key={k} className={scr === k ? "on" : ""} onClick={() => go(k)}>{l}</button>)}
         </nav>
@@ -808,9 +832,10 @@ function NewApp() {
         </div>
         <span className="spacer" />
         <div className="omni"><Search />Поиск по заявкам и нормативам<kbd>⌘K</kbd></div>
+        </>)}
         {/* Шапка показывает реальное состояние входа. Фото из демо-выгрузки убрано:
             гость выглядел как чужой залогиненный профиль (замечание Дениса-2). */}
-        {user ? (
+        {user && !authOpen ? (
           <div className="more">
             <button className="ava" title={user.name} onClick={e => { e.stopPropagation(); setLmenu(!lmenu); }}
               style={{ display: "grid", placeItems: "center", padding: 0, background: "var(--ink)", color: "var(--acid)", fontSize: 12.5, cursor: "pointer" }}>
@@ -825,14 +850,17 @@ function NewApp() {
           </div>
         ) : (
           <div className="more">
-            <button className="signin" onClick={e => { e.stopPropagation(); setLmenu(!lmenu); }}>Войти <Arr s={12} /></button>
-            {lmenu && (
+            <button className="signin" onClick={e => { e.stopPropagation(); setAuthOpen(!authOpen); }}>{CONCEPT ? "Кабинет" : "Войти"} <Arr s={12} /></button>
+            {authOpen && (
+              /* Вход и регистрация на месте (выгрузка v3). После входа — главная
+                 своей роли (у исполнителя рабочий стол); после регистрации —
+                 экраны знакомства: заказчику анкета объекта, исполнителю — анкета. */
               <SCREENS.AuthPanel
-                onEnterClient={() => { setLmenu(false); window.location.href = AUTH; }}
-                onEnterPro={() => { setLmenu(false); window.location.href = AUTH; }}
-                onRegClient={() => { setLmenu(false); window.location.href = AUTH + "?mode=register"; }}
-                onRegPro={() => { setLmenu(false); window.location.href = AUTH + "?mode=register"; }}
-                onClose={() => setLmenu(false)} />
+                onEnterClient={() => { setAuthOpen(false); setScr("home"); }}
+                onEnterPro={() => { setAuthOpen(false); setScr("home"); }}
+                onRegClient={() => { setAuthOpen(false); setScr("cint"); }}
+                onRegPro={() => { setAuthOpen(false); setScr("prowork"); }}
+                onClose={() => setAuthOpen(false)} />
             )}
           </div>
         )}
