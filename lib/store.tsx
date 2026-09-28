@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { User, Order, OrderResponse, StandardDocument, ExpertiseResponse, ExpertiseProject, ExpertiseRequest } from './types';
+import { User, UserRole, ExecutorCategory, Order, OrderResponse, StandardDocument, ExpertiseResponse, ExpertiseProject, ExpertiseRequest } from './types';
 import { MOCK_ORDERS, MOCK_RESPONSES, MOCK_STANDARDS, MOCK_EXPERTISE_REQUESTS, MOCK_EXPERTISE_PROJECTS, MOCK_EXPERTISE_RESPONSES } from './mock-data';
 
 interface AppState {
@@ -17,6 +17,13 @@ interface AppContextType extends AppState {
   // Возвращает код восстановления при успехе (показывается пользователю один раз), false — при отказе.
   register: (user: Omit<User, 'id' | 'createdAt'>) => string | false;
   resetPasswordByCode: (email: string, code: string, newPassword: string) => boolean;
+  // Вход по номеру телефона. Код подтверждения тут не проверяется: СМС-сервиса и
+  // сервера у прототипа нет, код генерирует и показывает сама страница входа
+  // (демонстрационный режим). Хранилище отвечает только за поиск аккаунта по
+  // номеру и за сессию — как login по почте.
+  findUserByPhone: (phone: string) => User | null;
+  registerByPhone: (data: { phone: string; name: string; role: UserRole; company?: string; executorCategories?: ExecutorCategory[] }) => string | false;
+  loginByPhone: (phone: string) => boolean;
   logout: () => void;
   updateUser: (patch: Partial<Omit<User, 'id' | 'createdAt'>>) => void;
   addOrder: (order: Omit<Order, 'id' | 'createdAt' | 'responsesCount' | 'customerId' | 'customerName'>) => Order;
@@ -60,6 +67,23 @@ function generateRecoveryCode() {
 // Сравнение кодов без учёта регистра, дефисов и пробелов.
 function normalizeRecoveryCode(code: string) {
   return (code || '').replace(/[\s-]/g, '').toUpperCase();
+}
+
+// Номер человек набирает как привык: «+7 900 123-45-67», «8 900 1234567»,
+// «79001234567». Чтобы это был один и тот же аккаунт, сравниваем только цифры,
+// ведущую 8 считаем русским кодом страны и сверяем последние 10 цифр —
+// код страны пишут то с плюсом, то без, то восьмёркой.
+function phoneKey(phone: string) {
+  const digits = (phone || '').replace(/\D/g, '');
+  const ru = digits.length === 11 && digits[0] === '8' ? '7' + digits.slice(1) : digits;
+  return ru.slice(-10);
+}
+
+// В pm_users номер кладём в одном виде, иначе профиль и настройки показывали бы
+// разнобой записей одного и того же телефона.
+function canonicalPhone(phone: string) {
+  const key = phoneKey(phone);
+  return key.length === 10 ? '+7' + key : '';
 }
 
 const DEFAULT_FAVORITES = MOCK_STANDARDS.filter((s) => s.isFeatured).map((s) => s.code);
@@ -140,6 +164,69 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       email,
       name,
       company: userData.company?.trim(),
+      recoveryCode,
+      id: generateId(),
+      createdAt: new Date().toISOString(),
+    };
+    users.push(newUser);
+    localStorage.setItem('pm_users', JSON.stringify(users));
+    const { password: _pw, recoveryCode: _rc, ...safe } = newUser;
+    setState((prev) => ({ ...prev, user: safe }));
+    return recoveryCode;
+  }, []);
+
+  const findUserByPhone = useCallback((phone: string) => {
+    if (typeof window === 'undefined') return null;
+    const key = phoneKey(phone);
+    if (key.length !== 10) return null;
+    const users = JSON.parse(localStorage.getItem('pm_users') || '[]') as User[];
+    // Номер есть и у аккаунтов, зарегистрированных по почте — по нему тоже
+    // пускаем: это один и тот же аккаунт, просто другой способ входа.
+    const found = users.find((u) => phoneKey(u.phone || '') === key);
+    if (!found) return null;
+    const { password: _pw, recoveryCode: _rc, ...safe } = found;
+    return safe as User;
+  }, []);
+
+  const loginByPhone = useCallback((phone: string) => {
+    const found = findUserByPhone(phone);
+    if (!found) return false;
+    const safe = { ...found };
+    // Та же миграция, что в login по почте (вопрос 18): у старых аккаунтов
+    // категории исполнителя выводим из legacy-роли.
+    if (!safe.executorCategories && (safe.role === 'designer' || safe.role === 'expert')) {
+      safe.executorCategories = [safe.role === 'designer' ? 'designer' : 'surveyor'];
+    }
+    setState((prev) => ({ ...prev, user: safe }));
+    return true;
+  }, [findUserByPhone]);
+
+  // Регистрация по номеру: аккаунт настоящий и ничем не отличается от почтового —
+  // попадает в pm_users и в pm_state.user, значит может публиковать заявки и
+  // откликаться. Пароля у него нет: вход — подтверждение номера. Код
+  // восстановления всё равно выдаём, чтобы у аккаунта был хоть один способ
+  // доступа, если номер сменится, и чтобы экран после регистрации был один
+  // и тот же для обоих способов.
+  const registerByPhone = useCallback((data: { phone: string; name: string; role: UserRole; company?: string; executorCategories?: ExecutorCategory[] }) => {
+    if (typeof window === 'undefined') return false;
+    const phone = canonicalPhone(data.phone);
+    if (!phone) return false;
+    const name = (data.name || '').trim();
+    if (!name) return false;
+    const users = JSON.parse(localStorage.getItem('pm_users') || '[]') as User[];
+    if (users.some((u) => phoneKey(u.phone || '') === phoneKey(phone))) return false;
+    const recoveryCode = generateRecoveryCode();
+    const newUser: User = {
+      // Почта на платформе используется как опознавательный признак: register
+      // сверяет по ней дубликаты, а кабинет, настройки и профиль её показывают.
+      // Пустая строка совпала бы у всех аккаунтов без почты и они считались бы
+      // дубликатами друг друга, поэтому адрес синтетический — по номеру.
+      email: 'phone-' + phoneKey(phone) + '@local',
+      name,
+      role: data.role,
+      company: data.company?.trim(),
+      phone,
+      executorCategories: data.executorCategories,
       recoveryCode,
       id: generateId(),
       createdAt: new Date().toISOString(),
@@ -333,6 +420,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         favoriteStandards,
         hydrated: mounted,
         login, register, resetPasswordByCode, logout, updateUser,
+        findUserByPhone, registerByPhone, loginByPhone,
         addOrder, addResponse, hasResponded, selectExecutor, toggleInvitedDesigner,
         getOrderById, getResponsesForOrder,
         getMyOrders, getMyResponses,

@@ -7,6 +7,7 @@
    (.page, .two, .box, .resp, .field, .inp). */
 import * as React from "react";
 import { SCREENS } from "./registry";
+import { authUrl } from "./links";
 import { useApp } from "@/lib/store";
 import { OBJECT_TYPE_LABELS, STAGE_LABELS, SCALE_LABELS } from "@/lib/constants";
 const { useState } = React;
@@ -124,7 +125,7 @@ function LiveOrder({ go, orderId }) {
                 {!user ? (
                   <div style={{ display: "grid", gap: 12 }}>
                     <p>Чтобы откликнуться, войдите на платформу.</p>
-                    <a className="btn btn-ink" href="/auth" style={{ textDecoration: "none" }}>Войти</a>
+                    <a className="btn btn-ink" href={authUrl()} style={{ textDecoration: "none" }}>Войти</a>
                   </div>
                 ) : !isDesigner ? (
                   <p>Откликаться на заявки могут исполнители-проектировщики.</p>

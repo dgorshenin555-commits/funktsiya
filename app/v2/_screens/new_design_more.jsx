@@ -6,8 +6,10 @@
    генератор не гоняем — он вернёт файл к состоянию выгрузки. */
 import * as React from "react";
 import { SCREENS } from "./registry";
+import { authUrl } from "./links";
 import { useApp } from "@/lib/store";
-import { REGIONS, EXECUTOR_CATEGORIES, STAGE_P_CAPITAL, STAGE_LABELS } from "@/lib/constants";
+import { REGIONS } from "@/lib/constants";
+import { DIRECTIONS, getDirectionSections, LEGACY_TO_DIRECTIONS } from "@/lib/directions";
 const { useState } = React;
 const Arr = ({ s = 14 }) => (<svg width={s} height={s} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M3 8h10M9 4l4 4-4 4" /></svg>);
 const Search = ({ s = 15 }) => (<svg width={s} height={s} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><circle cx="7" cy="7" r="4.4" /><path d="M10.4 10.4L14 14" /></svg>);
@@ -203,9 +205,9 @@ function Settings() {
   const [company, setCompany] = useState("");
   const [phone, setPhone] = useState("");
   const [region, setRegion] = useState("");
-  const [cats, setCats] = useState([]);
+  const [dirs, setDirs] = useState([]);       // коды направлений: pd, rd, calc…
   const [secs, setSecs] = useState([]);
-  const [stages, setStages] = useState([]);
+  const [objType, setObjType] = useState("capital_building");
   const [saved, setSaved] = useState(""); // какой блок только что сохранён: "profile" | "spec"
 
   /* Стор гидратируется из localStorage уже после первого рендера,
@@ -216,9 +218,10 @@ function Settings() {
     setCompany(user.company || "");
     setPhone(user.phone || "");
     setRegion(user.region || "");
-    setCats(user.executorCategories || []);
+    /* В старых аккаунтах лежат прежние коды (designer, surveyor…) — разворачиваем
+       их в направления справочника, иначе выбор выглядел бы пустым. */
+    setDirs(LEGACY_TO_DIRECTIONS(user.executorCategories));
     setSecs(user.specializations || []);
-    setStages(user.stages || []);
   }, [user]);
 
   const tgl = (list, set, v) => set(list.includes(v) ? list.filter(x => x !== v) : [...list, v]);
@@ -232,7 +235,7 @@ function Settings() {
             <h1>Вы не вошли</h1>
             <p>Войдите, чтобы управлять профилем и заявками.</p>
           </div>
-          <a className="btn btn-ink" href="/auth">Войти <Arr /></a>
+          <a className="btn btn-ink" href={authUrl()}>Войти <Arr /></a>
         </div>
       </div>
     );
@@ -241,14 +244,13 @@ function Settings() {
   /* Роль в старых аккаунтах хранится без категорий — поэтому проверяем и её. */
   const isExecutor = (user.executorCategories && user.executorCategories.length > 0)
     || user.role === "designer" || user.role === "expert";
-  const isDesigner = cats.includes("designer");
 
   const saveProfile = () => {
     updateUser({ name, company, phone, region });
     setSaved("profile");
   };
   const saveSpec = () => {
-    updateUser({ executorCategories: cats, specializations: secs, stages });
+    updateUser({ executorCategories: dirs, specializations: secs });
     setSaved("spec");
   };
 
@@ -284,40 +286,49 @@ function Settings() {
             {isExecutor && (
               <div className="box" style={{ marginBottom: 14 }}>
                 <h3>Специализация</h3>
-                <div className="field"><label>Кем вы работаете</label>
+                {/* Направления и их состав разделов — справочник CRM по ГОСТ Р 21.101-2020
+                    (замечание Дениса-4: «возьми структуру из проекта Управление проектом»).
+                    Раньше здесь был один плоский список из 22 шифров вперемешку. */}
+                <div className="field"><label>Направления работ</label>
                   <div className="picks">
-                    {EXECUTOR_CATEGORIES.map(c => (
-                      <button key={c.value} type="button" title={c.hint}
-                        className={"pick" + (cats.includes(c.value) ? " on" : "")}
-                        onClick={() => tgl(cats, setCats, c.value)}>{c.label}</button>
+                    {DIRECTIONS.map(d => (
+                      <button key={d.code} type="button" title={d.hint}
+                        className={"pick" + (dirs.includes(d.code) ? " on" : "")}
+                        onClick={() => tgl(dirs, setDirs, d.code)}>{d.name}</button>
                     ))}
                   </div>
                 </div>
-                {/* Разделы и стадии осмысленны только для проектировщика —
-                    у обследователя или 3D-сканирования их нет. */}
-                {isDesigner && (
-                  <>
-                    <div className="field"><label>Разделы проектирования</label>
+                {/* Разделы показываем только у направлений, где состав реально есть:
+                    у «Эксперта» и «Чертёжника» в справочнике одна запись-заглушка. */}
+                {dirs.filter(d => d === "pd" || d === "rd").map(code => {
+                  const dir = DIRECTIONS.find(x => x.code === code);
+                  const list = getDirectionSections(code, objType);
+                  return (
+                    <div className="field" key={code}>
+                      <label>Разделы · {dir.name}</label>
+                      {code === "pd" && (
+                        <div className="picks" style={{ marginBottom: 8 }}>
+                          {[["capital_building", "Капитальные объекты"], ["linear_object", "Линейные объекты"]].map(([v, l]) => (
+                            <button key={v} type="button"
+                              className={"pick" + (objType === v ? " on" : "")}
+                              onClick={() => setObjType(v)}>{l}</button>
+                          ))}
+                        </div>
+                      )}
                       <div className="picks">
-                        {STAGE_P_CAPITAL.map(s => (
-                          <button key={s.code} type="button" title={s.name}
-                            className={"pick" + (secs.includes(s.code) ? " on" : "")}
-                            onClick={() => tgl(secs, setSecs, s.code)}>{s.code}</button>
+                        {list.map(sec => (
+                          <button key={code + sec.number} type="button" title={sec.number + ". " + sec.name}
+                            className={"pick" + (secs.includes(sec.code || sec.number) ? " on" : "")}
+                            style={sec.parent ? { marginLeft: 14 } : undefined}
+                            onClick={() => tgl(secs, setSecs, sec.code || sec.number)}>
+                            {sec.code || sec.number}
+                          </button>
                         ))}
                       </div>
                       <p className="mut" style={{ fontSize: 13 }}>По этим разделам вам будут рекомендоваться заявки.</p>
                     </div>
-                    <div className="field"><label>Стадии</label>
-                      <div className="picks">
-                        {Object.entries(STAGE_LABELS).map(([k, l]) => (
-                          <button key={k} type="button"
-                            className={"pick" + (stages.includes(k) ? " on" : "")}
-                            onClick={() => tgl(stages, setStages, k)}>{l}</button>
-                        ))}
-                      </div>
-                    </div>
-                  </>
-                )}
+                  );
+                })}
                 <div className="row g12" style={{ flexWrap: "wrap" }}>
                   <button className="btn btn-ink" onClick={saveSpec}>Сохранить специализацию</button>
                   {saved === "spec" && <span className="lbl">Изменения сохранены</span>}

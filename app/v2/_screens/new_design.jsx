@@ -6,6 +6,7 @@
    генератор не гоняем — он вернёт файл к состоянию выгрузки. */
 import * as React from "react";
 import { SCREENS } from "./registry";
+import { authUrl } from "./links";
 import { IMG } from "../_assets";
 import { useApp } from "@/lib/store";
 import { OBJECT_TYPE_LABELS, STAGE_LABELS } from "@/lib/constants";
@@ -51,6 +52,12 @@ const Search = ({ s = 15 }) => (
 );
 const X = () => (<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><path d="M4 4l8 8M12 4l-8 8" /></svg>);
 const Chk = ({ s = 12 }) => (<svg width={s} height={s} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M3 8.5l3.5 3.5L13 4.5" /></svg>);
+
+/* Инициалы по первым буквам слов: «Андрей Кузнецов» → «АК». */
+const userInitials = s => {
+  const w = (s || "").split(/[^А-Яа-яA-Za-z]+/).filter(Boolean);
+  return (w.length > 1 ? w[0][0] + w[1][0] : (w[0] || "").slice(0, 2)).toUpperCase() || "??";
+};
 
 const Init = ({ n, bg = "#E8E5DD", c = "#14161A", size = 30 }) => (
   <div className="num" style={{ width: size, height: size, flex: `0 0 ${size}px`, borderRadius: 99, background: bg, color: c, display: "grid", placeItems: "center", fontSize: size * 0.36, fontWeight: 500, letterSpacing: 0 }}>{n}</div>
@@ -369,16 +376,14 @@ function Home({ go, goPro, goCli, regCli, regPro }) {
               </div>
             ))}
           </div>
+          {/* Кнопки выбора роли убраны: они дублировали кнопки в карточках выше
+              и сбивали с толку (замечание Дениса-4). */}
           <div className="peek__f">
             <p>Заявки и профили исполнителей открыты всем. Аккаунт нужен только чтобы откликнуться или опубликовать свою заявку.</p>
-            <div className="row g8" style={{ flexWrap: "wrap" }}>
-              <button className="btn btn-ink btn-sm" onClick={regCli}>Я заказчик</button>
-              <button className="btn btn-acid btn-sm" onClick={regPro}>Я исполнитель</button>
-            </div>
           </div>
           <div className="hero__note">
-            <span className="dot" style={{ background: "var(--moss)" }} />Регистрация — один номер телефона, без пароля. Смотреть заявки и исполнителей можно без аккаунта.
-            <button className="gate__in" onClick={() => go("set")}>Уже есть аккаунт — войти</button>
+            <span className="dot" style={{ background: "var(--moss)" }} />Регистрация занимает минуту. Смотреть заявки и исполнителей можно и без аккаунта.
+            <a className="gate__in" href={authUrl()} style={{ textDecoration: "none" }}>Уже есть аккаунт — войти</a>
           </div>
         </section>
       </div>
@@ -698,14 +703,12 @@ function NewApp() {
      человека в старый интерфейс. Префикс повторяет basePath из
      next.config.ts, слэша на конце нет: по таким адресам GitHub Pages
      отдаёт 404. */
-  const AUTH = (process.env.NODE_ENV === "production" ? "/funktsiya" : "") + "/v2/auth";
   const [scr, setScr] = useState("home");
   const [menu, setMenu] = useState(false);
   const [lmenu, setLmenu] = useState(false);
   /* Панель входа живёт своим состоянием, а не «пока гость»: после регистрации
      хранилище сразу авторизует, и без этого панель исчезла бы вместе с кодом
      восстановления и кнопкой перехода к анкете. */
-  const [authOpen, setAuthOpen] = useState(false);
   const [flash, setFlash] = useState(null);
   const [cur, setCur] = useState(null);
   const [cli, setCli] = useState(null);   /* что заполнили в короткой анкете */
@@ -743,11 +746,11 @@ function NewApp() {
      сможет ни опубликовать заявку, ни откликнуться. Экраны входного контура
      (creg/cint/pro) остаются в сборке как дизайн — их подключение к хранилищу
      запланировано следующим заходом. */
-  const toAuth = mode => { setMenu(false); setLmenu(false); window.location.href = mode ? AUTH + "?mode=" + mode : AUTH; };
-  const goCli = () => { setMenu(false); if (!user) return toAuth("register"); setScr("new"); };
-  const regCli = () => toAuth("register");
-  const regPro = () => toAuth("register");
-  const goPro = () => { setMenu(false); if (!user) return toAuth("register"); setScr(isExecutor ? "reqs" : "home"); };
+  const toAuth = (mode, role) => { setMenu(false); setLmenu(false); window.location.href = authUrl(mode, role); };
+  const goCli = () => { setMenu(false); if (!user) return toAuth("register", "customer"); setScr("new"); };
+  const regCli = () => toAuth("register", "customer");
+  const regPro = () => toAuth("register", "executor");
+  const goPro = () => { setMenu(false); if (!user) return toAuth("register", "executor"); setScr(isExecutor ? "reqs" : "home"); };
   const proDone = ph => {
     setProPhone(ph || "");
     try { localStorage.setItem("fn.pro.reg", ph || "1"); } catch (e) {}
@@ -807,7 +810,7 @@ function NewApp() {
      возвращаем его целиком, без оболочки заказчика. */
   if (scr === "pro" || scr === "prowork" || scr === "creg" || scr === "cint" || scr === "cwork" || scr === "pwork" || scr === "cprof" || scr === "pprof") return SCR[scr]();
   return (
-    <div className="nd" onClick={() => { if (menu) setMenu(false); if (lmenu) setLmenu(false); if (authOpen) setAuthOpen(false); }}>
+    <div className="nd" onClick={() => { if (menu) setMenu(false); if (lmenu) setLmenu(false); }}>
       <header className={"topbar" + (CONCEPT ? " topbar--c" : "")}>
         <div className="mark" onClick={() => go("home")}><Mark s={28} /><b>Функция</b></div>
         {CONCEPT ? (<>
@@ -833,13 +836,16 @@ function NewApp() {
         </>)}
         {/* Шапка показывает реальное состояние входа. Фото из демо-выгрузки убрано:
             гость выглядел как чужой залогиненный профиль (замечание Дениса-2). */}
-        {user && !authOpen ? (
+        {user ? (
           <div className="more">
             {/* Вошедшему — то же фото, что в дизайне (решение от 28.09), по нажатию
                 меню аккаунта. Имя и почта — отдельной строкой: длинная почта
                 внутри кнопки вылезала за край меню. */}
-            <img className="ava" src={IMG["me.jpg"]} alt="" title={user.name}
-              onClick={e => { e.stopPropagation(); setLmenu(!lmenu); }} style={{ cursor: "pointer" }} />
+            <button className="ava" title={user.name}
+              onClick={e => { e.stopPropagation(); setLmenu(!lmenu); }}
+              style={{ display: "grid", placeItems: "center", padding: 0, background: "var(--ink)", color: "var(--acid)", fontSize: 12.5, cursor: "pointer" }}>
+              {userInitials(user.name)}
+            </button>
             {lmenu && (
               <div className="menu" onClick={e => e.stopPropagation()}>
                 <div style={{ padding: "8px 11px 10px", marginBottom: 4, borderBottom: "1px solid var(--line)", minWidth: 0 }}>
@@ -847,30 +853,20 @@ function NewApp() {
                   <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 3, overflowWrap: "anywhere" }}>{user.email}</div>
                 </div>
                 <button onClick={() => go("set")}>Настройки</button>
-                <button onClick={() => { setLmenu(false); logout(); }}>Выйти</button>
+                <button onClick={() => { setLmenu(false); logout(); setScr("home"); }}>Выйти</button>
               </div>
             )}
           </div>
         ) : (
           <div className="more">
-            <button className="signin" onClick={e => { e.stopPropagation(); setAuthOpen(!authOpen); }}>{CONCEPT ? "Кабинет" : "Войти"} <Arr s={12} /></button>
-            {authOpen && (
-              /* Панель как в дизайне (решение от 28.09): вход по телефону и коду —
-                 демо, настоящий аккаунт не создаётся; переходы как в прототипе:
-                 вход — в рабочую область роли, регистрация — в анкету.
-                 Вход по email и паролю — на /v2/auth. */
-              <SCREENS.AuthPanel
-                onEnterClient={() => { setAuthOpen(false); setScr("cwork"); }}
-                onEnterPro={() => { setAuthOpen(false); setScr("pwork"); }}
-                onRegClient={() => { setAuthOpen(false); setScr("creg"); }}
-                onRegPro={() => { setAuthOpen(false); setScr("pro"); }}
-                onClose={() => setAuthOpen(false)} />
-            )}
+            {/* Выпадающая панель входа по телефону убрана (замечание Дениса-4:
+                «эта форма не работает»): она не создавала аккаунт и уводила в
+                кабинеты с выдуманными данными. Вход и регистрация — на своей
+                странице /v2/auth, вход по телефону добавлен уже там. */}
+            <a className="signin" href={authUrl()} style={{ textDecoration: "none" }}>{CONCEPT ? "Кабинет" : "Войти"} <Arr s={12} /></a>
           </div>
         )}
-        {/* Фото справа — как в дизайне (решение от 28.09); у вошедшего вместо
-            него кнопка с инициалами и меню выхода. */}
-        {!user && <img className="ava" src={IMG["me.jpg"]} alt="" onClick={() => go("set")} style={{ cursor: "pointer" }} />}
+
       </header>
       {(SCR[scr] || SCR.home)()}
     </div>

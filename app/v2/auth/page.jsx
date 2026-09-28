@@ -13,7 +13,7 @@
 
 import { useState, useEffect } from 'react';
 import { useApp } from '@/lib/store';
-import { EXECUTOR_CATEGORIES, STAGE_LABELS, STAGE_P_CAPITAL } from '@/lib/constants';
+import { EXECUTOR_CATEGORIES } from '@/lib/constants';
 import './auth.css';
 
 /* Префикс подпапки на GitHub Pages, как в next.config.ts. Пути собираем
@@ -42,9 +42,18 @@ const Mark = ({ s = 26 }) => (
 );
 
 export default function V2Auth() {
-  const { login, register, resetPasswordByCode, user, hydrated } = useApp();
+  const { login, register, resetPasswordByCode, findUserByPhone, registerByPhone, loginByPhone, user, hydrated } = useApp();
 
   const [mode, setMode] = useState('login');       // login | register | reset
+  const [method, setMethod] = useState('email');   // email | phone — способ входа
+  const [phone, setPhone] = useState('');
+  /* Код подтверждения живёт в состоянии страницы и показывается на экране.
+     Отправить настоящую СМС нечем: у прототипа нет ни сервера, ни СМС-шлюза.
+     Для настоящей отправки код должен рождаться и сверяться на сервере, а
+     браузер его не видеть — здесь это честно помечено как демонстрация. */
+  const [smsCode, setSmsCode] = useState('');
+  const [smsInput, setSmsInput] = useState('');
+  const [phoneOk, setPhoneOk] = useState(false);   // номер подтверждён кодом
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [show, setShow] = useState(false);
@@ -52,8 +61,6 @@ export default function V2Auth() {
   const [company, setCompany] = useState('');
   const [roleKind, setRoleKind] = useState('customer');
   const [cats, setCats] = useState([]);
-  const [secs, setSecs] = useState([]);
-  const [stages, setStages] = useState([]);
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
@@ -65,12 +72,34 @@ export default function V2Auth() {
   const isRegister = mode === 'register';
   const isReset = mode === 'reset';
   const isExecutor = roleKind === 'executor';
+  /* Сброс пароля возможен только по почте: у телефонного аккаунта пароля нет. */
+  const isPhone = method === 'phone' && !isReset;
+
+  /* Та же арифметика, что в store: важны 10 цифр после кода страны, а как
+     человек написал код страны — +7, 7 или 8 — неважно. */
+  const digits = phone.replace(/\D/g, '');
+  const phoneReady = digits.length === 10 || (digits.length === 11 && (digits[0] === '7' || digits[0] === '8'));
+
+  /* Три шага телефонного входа: номер → код → профиль (только если аккаунта нет). */
+  const phonePhase = !smsCode ? 'number' : !phoneOk ? 'code' : 'profile';
+  /* Имя, роль и категории спрашиваем при регистрации по почте и после
+     подтверждения номера — блоки те же, дублировать их не нужно. */
+  const askProfile = isPhone ? phonePhase === 'profile' : isRegister;
+
+  /* role в хранилище — производная от категорий, так устроен ролевой
+     кабинет платформы: исполнитель-проектировщик хранится как designer. */
+  const role = isExecutor ? (cats.includes('designer') ? 'designer' : 'expert') : roleKind;
 
   /* Режим приходит из адреса: кнопки на главной ведут сюда с ?mode=register.
      Читаем разово — useSearchParams в статическом экспорте требует Suspense. */
   useEffect(() => {
-    const m = new URLSearchParams(window.location.search).get('mode');
+    const q = new URLSearchParams(window.location.search);
+    const m = q.get('mode');
     if (m === 'register' || m === 'reset') setMode(m);
+    /* Роль приходит с главной: кнопка «Зарегистрироваться как исполнитель»
+       должна открывать форму уже с выбранной ролью, а не с заказчиком. */
+    const r = q.get('role');
+    if (r === 'customer' || r === 'executor' || r === 'manufacturer') setRoleKind(r);
   }, []);
 
   /* Уже вошёл — возвращаем в интерфейс варианта Б: он сам разберётся,
@@ -82,11 +111,56 @@ export default function V2Auth() {
   const toggle = (setter) => (v) =>
     setter((p) => (p.includes(v) ? p.filter((x) => x !== v) : [...p, v]));
 
-  const switchMode = (next) => { setMode(next); setError(''); setInfo(''); };
+  /* Смена номера обнуляет выданный код: он был выдан на прежний номер. */
+  const resetPhone = () => { setSmsCode(''); setSmsInput(''); setPhoneOk(false); };
+
+  const switchMode = (next) => { setMode(next); setError(''); setInfo(''); resetPhone(); };
+  const switchMethod = (next) => { setMethod(next); setError(''); setInfo(''); resetPhone(); };
+
+  const sendCode = () => {
+    setError(''); setInfo('');
+    if (!phoneReady) { setError('Введите номер целиком — 10 цифр после кода страны.'); return; }
+    setSmsCode(String(Math.floor(1000 + Math.random() * 9000)));
+    setSmsInput(''); setPhoneOk(false);
+  };
+
+  const confirmCode = () => {
+    setError(''); setInfo('');
+    if (smsInput.replace(/\D/g, '') !== smsCode) {
+      setError('Код не совпадает — он показан выше, или запросите другой.');
+      return;
+    }
+    setPhoneOk(true);
+    /* Номер уже за кем-то закреплён — это вход, а не регистрация, независимо
+       от открытой вкладки: второй аккаунт на тот же номер платформе не нужен. */
+    if (findUserByPhone(phone)) {
+      if (loginByPhone(phone)) window.location.href = BASE + '/v2';
+      else setError('Не удалось войти по этому номеру.');
+      return;
+    }
+    /* Тупика «такого номера нет» не делаем: номер подтверждён, осталось
+       спросить имя и роль — это и есть регистрация тем же номером. */
+    if (isLogin) setMode('register');
+    setInfo('Аккаунта с таким номером нет — заполните имя и роль, чтобы создать его.');
+  };
 
   const submit = (e) => {
     e.preventDefault();
     setError(''); setInfo('');
+
+    if (isPhone) {
+      if (phonePhase === 'number') { sendCode(); return; }
+      if (phonePhase === 'code') { confirmCode(); return; }
+      if (!name.trim()) { setError('Введите имя или название компании.'); return; }
+      if (isExecutor && cats.length === 0) { setError('Отметьте хотя бы одну категорию.'); return; }
+      const created = registerByPhone({
+        phone, name, role, company,
+        ...(isExecutor ? { executorCategories: cats } : {}),
+      });
+      if (created) setRecovery(created);
+      else setError('Не удалось создать аккаунт с этим номером — попробуйте войти.');
+      return;
+    }
 
     if (isLogin) {
       if (login(email, password)) window.location.href = BASE + '/v2';
@@ -105,15 +179,10 @@ export default function V2Auth() {
     if (!name.trim()) { setError('Введите имя или название компании.'); return; }
     if (isExecutor && cats.length === 0) { setError('Отметьте хотя бы одну категорию.'); return; }
 
-    /* role в хранилище — производная от категорий, так устроен ролевой
-       кабинет платформы: исполнитель-проектировщик хранится как designer. */
-    const role = isExecutor ? (cats.includes('designer') ? 'designer' : 'expert') : roleKind;
     const created = register({
       email, name, role, company, phone: '', password,
       ...(isExecutor ? {
         executorCategories: cats,
-        specializations: cats.includes('designer') ? secs : undefined,
-        stages: cats.includes('designer') && stages.length ? stages : undefined,
       } : {}),
     });
     if (created) setRecovery(created);
@@ -179,7 +248,45 @@ export default function V2Auth() {
               <button type="button" className={isRegister ? 'on' : ''} onClick={() => switchMode('register')}>Регистрация</button>
             </div>
 
-            {isRegister && (
+            {!isReset && (
+              <div className="va__f">
+                <label className="lbl">Способ входа</label>
+                <div className="seg">
+                  <button type="button" className={!isPhone ? 'on' : ''} onClick={() => switchMethod('email')}>Почта и пароль</button>
+                  <button type="button" className={isPhone ? 'on' : ''} onClick={() => switchMethod('phone')}>Телефон</button>
+                </div>
+              </div>
+            )}
+
+            {isPhone && (
+              <div className="va__f">
+                <label className="lbl">Номер телефона</label>
+                <input className="inp num" type="tel" value={phone} autoComplete="tel"
+                  placeholder="+7 900 000-00-00"
+                  onChange={(e) => { setPhone(e.target.value); if (smsCode) resetPhone(); }} />
+                {phoneOk
+                  ? <span className="va__hint">Номер подтверждён.</span>
+                  : <span className="va__hint">Номер заменяет логин и пароль: по нему вы и входите, и регистрируетесь.</span>}
+              </div>
+            )}
+
+            {isPhone && phonePhase === 'code' && (
+              <>
+                <div className="va__info">
+                  Демонстрационный режим: СМС не отправляется, код показан здесь.
+                  Для настоящей отправки нужен сервер и СМС-сервис.
+                </div>
+                <div className="va__code num">{smsCode}</div>
+                <div className="va__f">
+                  <label className="lbl">Код подтверждения</label>
+                  <input className="inp num" value={smsInput} inputMode="numeric" maxLength={4}
+                    placeholder="0000" autoComplete="one-time-code"
+                    onChange={(e) => setSmsInput(e.target.value)} />
+                </div>
+              </>
+            )}
+
+            {askProfile && (
               <div className="va__f">
                 <label className="lbl">Ваша роль</label>
                 <div className="va__roles">
@@ -194,7 +301,7 @@ export default function V2Auth() {
               </div>
             )}
 
-            {isRegister && (
+            {askProfile && (
               <>
                 <div className="va__f">
                   <label className="lbl">{isExecutor ? 'ФИО или название' : 'Название компании или ФИО'}</label>
@@ -209,7 +316,7 @@ export default function V2Auth() {
               </>
             )}
 
-            {isRegister && isExecutor && (
+            {askProfile && isExecutor && (
               <div className="va__f">
                 <label className="lbl">Категории — можно несколько</label>
                 <div className="va__chips">
@@ -222,37 +329,21 @@ export default function V2Auth() {
               </div>
             )}
 
-            {isRegister && isExecutor && cats.includes('designer') && (
-              <>
-                <div className="va__f">
-                  <label className="lbl">Разделы проектирования</label>
-                  <div className="va__chips">
-                    {STAGE_P_CAPITAL.map((s) => (
-                      <button type="button" key={s.code} title={s.name}
-                        className={'chip' + (secs.includes(s.code) ? ' on' : '')}
-                        onClick={() => toggle(setSecs)(s.code)}>{s.code}</button>
-                    ))}
-                  </div>
-                  <span className="va__hint">По этим разделам вам будут подбираться заявки.</span>
-                </div>
-                <div className="va__f">
-                  <label className="lbl">Стадии</label>
-                  <div className="va__chips">
-                    {Object.entries(STAGE_LABELS).map(([c, l]) => (
-                      <button type="button" key={c}
-                        className={'chip' + (stages.includes(c) ? ' on' : '')}
-                        onClick={() => toggle(setStages)(c)}>{l}</button>
-                    ))}
-                  </div>
-                </div>
-              </>
+            {/* Разделы и стадии из регистрации убраны (замечание Дениса-4:
+                форма исполнителя была нагромождена). Их выбирают уже в аккаунте,
+                в настройках — там же, где направления: так обещает и текст на
+                странице «направления, разделы и документы заполним после входа». */}
+            {askProfile && isExecutor && cats.includes('designer') && (
+              <span className="va__hint">Разделы и стадии выберете в настройках после входа — подбор заявок настроится по ним.</span>
             )}
 
-            <div className="va__f">
-              <label className="lbl">Почта</label>
-              <input className="inp" type="email" value={email} onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.ru" autoComplete="email" required />
-            </div>
+            {!isPhone && (
+              <div className="va__f">
+                <label className="lbl">Почта</label>
+                <input className="inp" type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.ru" autoComplete="email" required />
+              </div>
+            )}
 
             {isReset && (
               <div className="va__f">
@@ -262,27 +353,32 @@ export default function V2Auth() {
               </div>
             )}
 
-            <div className="va__f">
-              <label className="lbl">{isReset ? 'Новый пароль' : 'Пароль'}</label>
-              <div className="va__pw">
-                <input className="inp" type={show ? 'text' : 'password'} value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  autoComplete={isLogin ? 'current-password' : 'new-password'} required />
-                <button type="button" className="va__eye" onClick={() => setShow(!show)}>
-                  {show ? 'скрыть' : 'показать'}
-                </button>
+            {!isPhone && (
+              <div className="va__f">
+                <label className="lbl">{isReset ? 'Новый пароль' : 'Пароль'}</label>
+                <div className="va__pw">
+                  <input className="inp" type={show ? 'text' : 'password'} value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    autoComplete={isLogin ? 'current-password' : 'new-password'} required />
+                  <button type="button" className="va__eye" onClick={() => setShow(!show)}>
+                    {show ? 'скрыть' : 'показать'}
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
 
             {error && <div className="va__err">{error}</div>}
             {info && <div className="va__info">{info}</div>}
 
             <button type="submit" className="btn btn-acid btn-lg va__go">
-              {isLogin ? 'Войти' : isReset ? 'Сменить пароль' : 'Создать аккаунт'} <Arr />
+              {isPhone
+                ? (phonePhase === 'number' ? 'Получить код' : phonePhase === 'code' ? 'Подтвердить номер' : 'Создать аккаунт')
+                : isLogin ? 'Войти' : isReset ? 'Сменить пароль' : 'Создать аккаунт'} <Arr />
             </button>
 
             <div className="va__alt">
-              {isLogin && <button type="button" onClick={() => switchMode('reset')}>Забыли пароль?</button>}
+              {isPhone && phonePhase === 'code' && <button type="button" onClick={sendCode}>Отправить другой код</button>}
+              {isLogin && !isPhone && <button type="button" onClick={() => switchMode('reset')}>Забыли пароль?</button>}
               {!isLogin && <button type="button" onClick={() => switchMode('login')}>Уже есть аккаунт — войти</button>}
             </div>
           </form>

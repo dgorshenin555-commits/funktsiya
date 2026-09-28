@@ -6,6 +6,7 @@
    генератор не гоняем — он вернёт файл к состоянию выгрузки. */
 import * as React from "react";
 import { SCREENS } from "./registry";
+import { authUrl } from "./links";
 import { useApp } from "@/lib/store";
 import { STAGE_P_CAPITAL, OBJECT_TYPE_LABELS, STAGE_LABELS, REGIONS } from "@/lib/constants";
 const { useState, useRef, useEffect } = React;
@@ -230,8 +231,8 @@ function OrderNew({ go, onPublish }) {
             Заявку можно опубликовать только из аккаунта заказчика — так исполнители видят, кто её разместил.
           </p>
           <div className="row g12" style={{ flexWrap: "wrap" }}>
-            <a className="btn btn-acid" href="/auth?mode=register" style={{ textDecoration: "none" }}>Зарегистрироваться</a>
-            <a className="btn btn-line" href="/auth" style={{ textDecoration: "none" }}>Войти</a>
+            <a className="btn btn-acid" href={authUrl("register")} style={{ textDecoration: "none" }}>Зарегистрироваться</a>
+            <a className="btn btn-line" href={authUrl()} style={{ textDecoration: "none" }}>Войти</a>
           </div>
         </div>
       </div>
@@ -252,7 +253,7 @@ function OrderNew({ go, onPublish }) {
   const publish = () => {
     if (!user) {
       // Без входа хранилище не знает автора заявки; вход общий с основным дизайном.
-      window.location.href = "/auth";
+      window.location.href = authUrl();
       return;
     }
     const digits = String(budget).replace(/\D/g, "");
