@@ -351,7 +351,7 @@ const GATES = [
   },
 ];
 
-function Home({ go, goPro, goCli, regCli, regPro }) {
+function Home({ go, goPro, goCli, regCli, regPro, user, canOrder }) {
   const [open, setOpen] = useState(null);
   const [capOpen, setCapOpen] = useState(0);
   return (
@@ -370,7 +370,12 @@ function Home({ go, goPro, goCli, regCli, regPro }) {
                   {g.li.map(x => <span key={x}><i><Chk s={10} /></i>{x}</span>)}
                 </div>
                 <div className="gate__act">
-                  <button className={"btn btn-lg " + (g.k === "cli" ? "btn-ink" : "btn-acid")} onClick={g.k === "cli" ? regCli : regPro}>{g.cta} <Arr /></button>
+                  {/* Вошедшему предлагать регистрацию бессмысленно: заказчику даём
+                      создать заявку, исполнителю — перейти к заявкам. */}
+                  <button className={"btn btn-lg " + (g.k === "cli" ? "btn-ink" : "btn-acid")}
+                    onClick={g.k === "cli" ? goCli : goPro}>
+                    {user ? (g.k === "cli" ? (canOrder ? "Создать заявку" : "К заявкам") : "К заявкам") : g.cta} <Arr />
+                  </button>
                   <button className="gate__sec" onClick={() => g.k === "cli" ? go(g.secGo) : go("reqs")}>{g.sec} <Arr s={13} /></button>
                 </div>
               </div>
@@ -787,7 +792,7 @@ function NewApp() {
       ? <ExecHome go={go} user={user} cards={liveCards} openLive={openLive} />
       : HOME_CONCEPT && SCREENS.HomeConcept
         ? <SCREENS.HomeConcept go={go} regCli={regCli} regPro={regPro} />
-        : <Home go={go} goPro={goPro} goCli={goCli} regCli={regCli} regPro={regPro} />,
+        : <Home go={go} goPro={goPro} goCli={goCli} regCli={regCli} regPro={regPro} user={user} canOrder={canOrder} />,
     creg: () => <SCREENS.ClientReg go={go} onPro={regPro} onDone={ph => { try { localStorage.setItem("fn.cli.reg", ph || "1"); } catch (e) {} setScr("cint"); }} />,
     cint: () => <SCREENS.ClientIntro go={go} onDone={d => { setCli(d); setScr("cwork"); }} onSkip={() => setScr("cwork")} />,
     cwork: () => <SCREENS.ClientWork go={go} cli={cli} onProfile={() => setScr("cprof")} />,
